@@ -1,0 +1,82 @@
+@startuml
+
+hide footbox
+
+actor User
+participant "Drawing Thread"
+participant "Input Thread"
+participant "Update Thread"
+collections "Online Feed"
+database "Memori"
+
+User -> "Drawing Thread" : Start
+activate "Drawing Thread"
+
+"Drawing Thread" -> "Update Thread" : Start update
+activate "Update Thread"
+
+"Drawing Thread" --> User : Show view
+deactivate "Drawing Thread"
+
+"Update Thread" -> "Online Feed" : Request content
+activate "Online Feed"
+
+"Online Feed" --> "Update Thread" : Return content
+deactivate "Online Feed"
+
+opt New content
+    "Update Thread" -> "Drawing Thread"
+    deactivate "Update Thread"
+    activate "Drawing Thread"
+    
+    "Drawing Thread" --> User : Update view
+    deactivate "Drawing Thread"
+end
+
+
+
+User -> "Input Thread" : Input 1
+User -> "Input Thread" : Input 2
+
+"Input Thread" -> "Input Thread" : Time update
+activate "Input Thread"
+
+"Input Thread" -> "Input Thread" : Get events
+activate "Input Thread"
+return Events List
+
+
+opt Need redraw
+    "Input Thread" -> "Drawing Thread" : Send events
+    deactivate "Input Thread"
+    activate "Drawing Thread"
+
+    "Drawing Thread" --> User : Update view
+    deactivate "Drawing Thread"
+end
+
+
+"Update Thread" -> "Update Thread" : Time update
+activate "Update Thread"
+
+"Update Thread" -> "Online Feed" : Request content
+activate "Online Feed"
+
+"Online Feed" --> "Update Thread" : Return content
+deactivate "Online Feed"
+
+opt New content
+    "Update Thread" -> "Drawing Thread"
+    deactivate "Update Thread"
+    activate "Drawing Thread"
+    
+    "Drawing Thread" --> User : Update view
+    deactivate "Drawing Thread"
+end
+
+deactivate "Update Thread"
+
+
+
+@enduml
+
