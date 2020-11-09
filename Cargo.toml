@@ -1,0 +1,18 @@
+[package]
+name = "feedrs"
+version = "0.0.1"
+authors = ["Joshua Chapman <joshua.samuel.chapman@protonmail.com>"]
+edition = "2018"
+
+[dependencies]
+# TODO: Remove unnecessary features ( probably only ["rt-threaded","macros",
+# "time"] are needed)
+tokio = { version = "0.3", features = ["full"] }
+# Requests
+reqwest = "0.10"
+# Parser
+syndication = "0.5"
+# TUI
+tui = "0.12"
+termion = "1.5"
+
