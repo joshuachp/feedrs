@@ -1,12 +1,38 @@
+use reqwest;
 use std::io;
 use termion::event::Key;
 use termion::input::TermRead;
 use termion::raw::IntoRawMode;
+use tokio::sync::mpsc;
 use tui::backend::TermionBackend;
 use tui::widgets::{Block, Borders};
 use tui::Terminal;
 
-fn main() -> io::Result<()> {
+async fn request_content(url: &str) -> reqwest::Result<String> {
+    // TODO: Check status and show errors
+    reqwest::get(url).await?.text().await
+}
+
+async fn update_content(sources: Vec<String>) {
+    let (sender, mut receiver) = mpsc::channel(sources.len());
+    let mut content_vec: Vec<String> = Vec::with_capacity(sources.len());
+
+    for source in sources {
+        let sender = sender.clone();
+        tokio::spawn(async move {
+            let content = request_content(&source).await.unwrap();
+            sender.send(content).await.unwrap();
+        });
+    }
+    drop(sender);
+
+    while let Some(content) = receiver.recv().await {
+        content_vec.push(content)
+    }
+}
+
+#[tokio::main]
+async fn main() -> io::Result<()> {
     let stdin = io::stdin();
     let stdout = io::stdout().into_raw_mode()?;
     let backend = TermionBackend::new(stdout);
@@ -32,4 +58,11 @@ fn main() -> io::Result<()> {
         }
     }
     Ok(())
+}
+
+#[tokio::test]
+async fn test_request_content() {
+    request_content("https://joshuacho.github.io/index.xml")
+        .await
+        .unwrap();
 }
