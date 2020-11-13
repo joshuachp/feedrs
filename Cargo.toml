@@ -7,7 +7,8 @@ edition = "2018"
 [dependencies]
 # TODO: Remove unnecessary features ( probably only ["rt-threaded","macros",
 # "time"] are needed)
-tokio = { version = "0.3", features = ["full"] }
+# TODO: Upgrade to tokio 0.3 when it will be supported by reqwest
+tokio = { version = "0.2", features = ["full"] }
 # Requests
 reqwest = "0.10"
 # Parser

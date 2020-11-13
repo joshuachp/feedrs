@@ -13,12 +13,14 @@ async fn request_content(url: &str) -> reqwest::Result<String> {
     reqwest::get(url).await?.text().await
 }
 
+const INPUT: u8 = 10;
+
 async fn update_content(sources: Vec<String>) {
     let (sender, mut receiver) = mpsc::channel(sources.len());
     let mut content_vec: Vec<String> = Vec::with_capacity(sources.len());
 
     for source in sources {
-        let sender = sender.clone();
+        let mut sender = sender.clone();
         tokio::spawn(async move {
             let content = request_content(&source).await.unwrap();
             sender.send(content).await.unwrap();
@@ -30,6 +32,8 @@ async fn update_content(sources: Vec<String>) {
         content_vec.push(content)
     }
 }
+
+fn input_thread() {}
 
 #[tokio::main]
 async fn main() -> io::Result<()> {
@@ -60,9 +64,15 @@ async fn main() -> io::Result<()> {
     Ok(())
 }
 
-#[tokio::test]
-async fn test_request_content() {
-    request_content("https://joshuacho.github.io/index.xml")
-        .await
-        .unwrap();
+#[cfg(test)]
+mod test {
+
+    use super::request_content;
+
+    #[tokio::test]
+    async fn test_request_content() {
+        request_content("https://joshuacho.github.io/index.xml")
+            .await
+            .unwrap();
+    }
 }
