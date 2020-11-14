@@ -5,7 +5,7 @@ use std::sync::{Arc, Mutex};
 use termion::event::Key;
 use termion::input::TermRead;
 use termion::raw::IntoRawMode;
-use tokio::sync::{mpsc, Notify};
+use tokio::sync::mpsc;
 use tui::backend::TermionBackend;
 use tui::widgets::{Block, Borders};
 use tui::Terminal;
@@ -38,28 +38,23 @@ async fn update_content(sources: Vec<String>) -> Option<Vec<String>> {
     None
 }
 
-fn input_thread(inputs: &Arc<Mutex<VecDeque<Key>>>, notify: &Arc<Notify>) {
-    let inputs = inputs.clone();
-    let notify = notify.clone();
+fn input_thread(inputs: &Arc<Mutex<VecDeque<Key>>>) {
+    let stdin = io::stdin();
+    let inputs = Arc::clone(inputs);
     tokio::spawn(async move {
-        let mut interval = tokio::time::interval(tokio::time::Duration::from_millis(50));
-        let stdin = io::stdin();
-
         loop {
-            println!("Test");
-
             // Wait for some time to get input
-            interval.tick().await;
-
             let stdin = stdin.lock();
-            let keys: Vec<Key> = stdin.keys().map(|key| key.unwrap()).collect();
+            let keys = stdin.keys();
+            for key in keys {
+                if let Ok(key) = key {
+                    let mut inputs = inputs.lock().unwrap();
+                    inputs.push_back(key);
 
-            if !keys.is_empty() {
-                let mut inputs = inputs.lock().unwrap();
-                inputs.extend(keys);
-
-                // Notify main thread
-                notify.notify();
+                    if key == Key::Char('q') {
+                        return;
+                    }
+                }
             }
         }
     });
@@ -70,37 +65,38 @@ async fn main() -> io::Result<()> {
     let stdout = io::stdout().into_raw_mode()?;
     let backend = TermionBackend::new(stdout);
     let mut terminal = Terminal::new(backend)?;
-    let mut run = true;
+
+    // Draws the area every 50 milliseconds
+    let mut interval = tokio::time::interval(tokio::time::Duration::from_millis(50));
 
     // FIFO of the inputs
     let inputs = Arc::new(Mutex::new(VecDeque::<Key>::new()));
-    // Notifies the main thread when to redraw
-    let notify = Arc::new(Notify::new());
+    // Flag for closing all threads
 
-    // Starts input thread
-    input_thread(&inputs, &notify);
+    // Starts user input thread
+    input_thread(&inputs);
 
-    while run {
+    terminal.clear()?;
+    loop {
+        // Drawing tick
+        interval.tick().await;
+
         terminal.draw(|f| {
             let size = f.size();
-            let block = Block::default().title("Block").borders(Borders::ALL);
+            let block = Block::default().title("Feed").borders(Borders::ALL);
             f.render_widget(block, size);
         })?;
-
-        notify.notified().await;
 
         let mut inputs = inputs.lock().unwrap();
         for key in inputs.drain(..) {
             match key {
                 Key::Char('q') => {
-                    run = false;
-                    break;
+                    return Ok(());
                 }
                 _ => {}
             }
         }
     }
-    Ok(())
 }
 
 #[cfg(test)]
