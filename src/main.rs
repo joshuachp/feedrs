@@ -1,3 +1,5 @@
+mod config;
+
 use reqwest;
 use std::collections::VecDeque;
 use std::io;
@@ -46,6 +48,7 @@ fn input_thread(inputs: &Arc<Mutex<VecDeque<Key>>>) {
             // Wait for some time to get input
             let stdin = stdin.lock();
             let keys = stdin.keys();
+            // This loop never ends until q is pressed
             for key in keys {
                 if let Ok(key) = key {
                     let mut inputs = inputs.lock().unwrap();
@@ -62,6 +65,8 @@ fn input_thread(inputs: &Arc<Mutex<VecDeque<Key>>>) {
 
 #[tokio::main]
 async fn main() -> io::Result<()> {
+    let _config = config::config();
+
     let stdout = io::stdout().into_raw_mode()?;
     let backend = TermionBackend::new(stdout);
     let mut terminal = Terminal::new(backend)?;
@@ -76,11 +81,14 @@ async fn main() -> io::Result<()> {
     // Starts user input thread
     input_thread(&inputs);
 
+    // Clear the terminal before drawing
     terminal.clear()?;
+
     loop {
         // Drawing tick
         interval.tick().await;
 
+        // TODO: Move to different function
         terminal.draw(|f| {
             let size = f.size();
             let block = Block::default().title("Feed").borders(Borders::ALL);
@@ -106,7 +114,7 @@ mod test {
 
     #[tokio::test]
     async fn test_request_content() {
-        request_content("https://joshuacho.github.io/index.xml")
+        request_content("https://joshuachp.github.io/index.xml")
             .await
             .unwrap();
     }
