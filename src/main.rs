@@ -65,7 +65,11 @@ fn input_thread(inputs: &Arc<Mutex<VecDeque<Key>>>) {
 
 #[tokio::main]
 async fn main() -> io::Result<()> {
-    let _config = config::config();
+    // Read configuration
+    let _config = match config::config() {
+        Ok(config) => config,
+        Err(err) => panic!("{}", err),
+    };
 
     let stdout = io::stdout().into_raw_mode()?;
     let backend = TermionBackend::new(stdout);
