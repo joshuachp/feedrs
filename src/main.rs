@@ -1,44 +1,16 @@
-mod config;
+mod configuration;
+mod database;
+mod update;
 
-use reqwest;
 use std::collections::VecDeque;
 use std::io;
 use std::sync::{Arc, Mutex};
 use termion::event::Key;
 use termion::input::TermRead;
 use termion::raw::IntoRawMode;
-use tokio::sync::mpsc;
 use tui::backend::TermionBackend;
 use tui::widgets::{Block, Borders};
 use tui::Terminal;
-
-async fn request_content(url: &str) -> reqwest::Result<String> {
-    // TODO: Check status and show errors
-    reqwest::get(url).await?.text().await
-}
-
-async fn update_content(sources: Vec<String>) -> Option<Vec<String>> {
-    // Update only if there is a source to update from
-    if sources.len() > 0 {
-        let (sender, mut receiver) = mpsc::channel(sources.len());
-        let mut content_vec: Vec<String> = Vec::with_capacity(sources.len());
-
-        for source in sources {
-            let mut sender = sender.clone();
-            tokio::spawn(async move {
-                let content = request_content(&source).await.unwrap();
-                sender.send(content).await.unwrap();
-            });
-        }
-        drop(sender);
-
-        while let Some(content) = receiver.recv().await {
-            content_vec.push(content)
-        }
-        return Some(content_vec);
-    }
-    None
-}
 
 fn input_thread(inputs: &Arc<Mutex<VecDeque<Key>>>) {
     let stdin = io::stdin();
@@ -66,10 +38,9 @@ fn input_thread(inputs: &Arc<Mutex<VecDeque<Key>>>) {
 #[tokio::main]
 async fn main() -> io::Result<()> {
     // Read configuration
-    let _config = match config::config() {
-        Ok(config) => config,
-        Err(err) => panic!("{}", err),
-    };
+    let config = configuration::config(std::env::args())?;
+    // Create database pool
+    let _pool = database::create_database(&config.cache_uri);
 
     let stdout = io::stdout().into_raw_mode()?;
     let backend = TermionBackend::new(stdout);
@@ -108,18 +79,5 @@ async fn main() -> io::Result<()> {
                 _ => {}
             }
         }
-    }
-}
-
-#[cfg(test)]
-mod test {
-
-    use super::request_content;
-
-    #[tokio::test]
-    async fn test_request_content() {
-        request_content("https://joshuachp.github.io/index.xml")
-            .await
-            .unwrap();
     }
 }
