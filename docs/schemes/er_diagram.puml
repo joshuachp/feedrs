@@ -1,0 +1,11 @@
+@startuml
+
+entity RSS {
+
+}
+
+entity AtomFeeds {
+
+}
+
+@enduml

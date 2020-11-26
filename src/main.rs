@@ -3,6 +3,7 @@ mod database;
 mod update;
 
 use std::collections::VecDeque;
+use std::error::Error;
 use std::io;
 use std::sync::{Arc, Mutex};
 use termion::event::Key;
@@ -36,12 +37,13 @@ fn input_thread(inputs: &Arc<Mutex<VecDeque<Key>>>) {
 }
 
 #[tokio::main]
-async fn main() -> io::Result<()> {
+async fn main() -> Result<(), Box<dyn Error>> {
     // Read configuration
     let config = configuration::config(std::env::args())?;
     // Create database pool
-    let _pool = database::create_database(&config.cache_uri);
+    let _pool = database::create_database(&config.cache_uri)?;
 
+    // Initialize TUI
     let stdout = io::stdout().into_raw_mode()?;
     let backend = TermionBackend::new(stdout);
     let mut terminal = Terminal::new(backend)?;
