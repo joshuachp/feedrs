@@ -58,6 +58,9 @@ async fn main() -> Result<(), Box<dyn Error>> {
     // Starts user input thread
     input_thread(&inputs);
 
+    // Starts update thread
+    update::update_thread(&config);
+
     // Clear the terminal before drawing
     terminal.clear()?;
 

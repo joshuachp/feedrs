@@ -33,7 +33,7 @@ async fn update_content(sources: &Vec<Arc<String>>) -> Option<Vec<String>> {
     None
 }
 
-fn update_thread(config: &Config) {
+pub fn update_thread(config: &Config) {
     let update_interval = config.update_interval;
     let sources: Vec<Arc<String>> = config
         .sources

@@ -7,7 +7,6 @@ use std::fs::{create_dir_all, File};
 use std::io;
 use std::io::{BufReader, Read};
 use std::path::{Path, PathBuf};
-use std::sync::Arc;
 
 // Configuration structure for serialization and deserialization
 #[derive(Deserialize, Debug, Eq, PartialEq)]
