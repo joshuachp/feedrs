@@ -2,17 +2,20 @@ mod configuration;
 mod database;
 mod update;
 
-use std::collections::HashMap;
-use std::collections::VecDeque;
+use std::collections::{HashMap, VecDeque};
 use std::error::Error;
 use std::io;
+use std::io::Stdout;
 use std::sync::{Arc, Mutex, RwLock};
 use syndication::Feed;
 use termion::event::Key;
 use termion::input::TermRead;
-use termion::raw::IntoRawMode;
+use termion::raw::{IntoRawMode, RawTerminal};
 use tui::backend::TermionBackend;
-use tui::widgets::{Block, Borders};
+use tui::layout::{Constraint, Direction, Layout};
+use tui::style::{Color, Modifier, Style};
+use tui::text::Spans;
+use tui::widgets::{Block, Borders, List, ListItem};
 use tui::Terminal;
 
 fn input_thread(inputs: &Arc<Mutex<VecDeque<Key>>>) {
@@ -36,6 +39,64 @@ fn input_thread(inputs: &Arc<Mutex<VecDeque<Key>>>) {
             }
         }
     });
+}
+
+// TODO: Check for errors in unwraps and is just a test, maybe refactor
+fn draw(
+    terminal: &mut Terminal<TermionBackend<RawTerminal<Stdout>>>,
+    content: &Arc<RwLock<HashMap<Arc<String>, Feed>>>,
+) -> io::Result<()> {
+    terminal.draw(|f| {
+        let chunks = Layout::default()
+            .direction(Direction::Horizontal)
+            .constraints([Constraint::Percentage(100)].as_ref())
+            .split(f.size());
+
+        let content = content.read().unwrap();
+
+        let items: Vec<ListItem> = content
+            .values()
+            .flat_map(|feed| match feed {
+                Feed::Atom(feed) => feed
+                    .entries()
+                    .iter()
+                    .map(|entry| {
+                        let lines = vec![
+                            Spans::from(entry.title()),
+                            Spans::from(entry.summary().unwrap()),
+                        ];
+                        return ListItem::new(lines)
+                            .style(Style::default().fg(Color::Black).bg(Color::White));
+                    })
+                    .collect::<Vec<ListItem>>(),
+
+                Feed::RSS(feed) => feed
+                    .items()
+                    .iter()
+                    .map(|entry| {
+                        let lines = vec![
+                            Spans::from(entry.title().unwrap()),
+                            Spans::from(entry.description().unwrap()),
+                        ];
+                        return ListItem::new(lines)
+                            .style(Style::default().fg(Color::Black).bg(Color::White));
+                    })
+                    .collect::<Vec<ListItem>>(),
+            })
+            .collect();
+
+        let items = List::new(items)
+            .block(Block::default().borders(Borders::ALL).title("List"))
+            .highlight_style(
+                Style::default()
+                    .bg(Color::LightGreen)
+                    .add_modifier(Modifier::BOLD),
+            )
+            .highlight_symbol(">> ");
+        f.render_widget(items, chunks[0]);
+    })?;
+
+    Ok(())
 }
 
 #[tokio::main]
@@ -73,12 +134,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
         // Drawing tick
         interval.tick().await;
 
-        // TODO: Move to different function
-        terminal.draw(|f| {
-            let size = f.size();
-            let block = Block::default().title("Feed").borders(Borders::ALL);
-            f.render_widget(block, size);
-        })?;
+        draw(&mut terminal, &content)?;
 
         let mut inputs = inputs.lock().unwrap();
         for key in inputs.drain(..) {
