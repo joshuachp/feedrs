@@ -2,10 +2,12 @@ mod configuration;
 mod database;
 mod update;
 
+use std::collections::HashMap;
 use std::collections::VecDeque;
 use std::error::Error;
 use std::io;
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, RwLock};
+use syndication::Feed;
 use termion::event::Key;
 use termion::input::TermRead;
 use termion::raw::IntoRawMode;
@@ -43,6 +45,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
     // Create database pool
     let _pool = database::create_database(&config.cache_uri)?;
 
+    let content: Arc<RwLock<HashMap<Arc<String>, Feed>>> = Arc::new(RwLock::new(HashMap::new()));
+
     // Initialize TUI
     let stdout = io::stdout().into_raw_mode()?;
     let backend = TermionBackend::new(stdout);
@@ -59,7 +63,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     input_thread(&inputs);
 
     // Starts update thread
-    update::update_thread(&config);
+    update::update_thread(&config, &content);
 
     // Clear the terminal before drawing
     terminal.clear()?;

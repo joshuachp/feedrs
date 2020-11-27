@@ -1,5 +1,6 @@
-use std::sync::Arc;
-use tokio::sync::mpsc;
+use std::collections::HashMap;
+use std::sync::{Arc, RwLock};
+use syndication::Feed;
 use tokio::time::{interval, Duration};
 
 use crate::configuration::Config;
@@ -9,31 +10,29 @@ async fn request_content(url: &str) -> reqwest::Result<String> {
     reqwest::get(url).await?.text().await
 }
 
-async fn update_content(sources: &Vec<Arc<String>>) -> Option<Vec<String>> {
+async fn update_content(
+    sources: &Vec<Arc<String>>,
+    content: &Arc<RwLock<HashMap<Arc<String>, Feed>>>,
+) {
     // Update only if there is a source to update from
     if sources.len() > 0 {
-        let (sender, mut receiver) = mpsc::channel(sources.len());
-        let mut content_vec: Vec<String> = Vec::with_capacity(sources.len());
-
         for source in sources {
-            let mut sender = sender.clone();
             let source = Arc::clone(source);
+            let content = Arc::clone(content);
             tokio::spawn(async move {
-                let content = request_content(&source).await.unwrap();
-                sender.send(content).await.unwrap();
+                let feed = request_content(&source)
+                    .await
+                    .unwrap()
+                    .parse::<Feed>()
+                    .unwrap();
+                let mut content = content.write().unwrap();
+                content.insert(source, feed);
             });
         }
-        drop(sender);
-
-        while let Some(content) = receiver.recv().await {
-            content_vec.push(content)
-        }
-        return Some(content_vec);
     }
-    None
 }
 
-pub fn update_thread(config: &Config) {
+pub fn update_thread(config: &Config, content: &Arc<RwLock<HashMap<Arc<String>, Feed>>>) {
     let update_interval = config.update_interval;
     let sources: Vec<Arc<String>> = config
         .sources
@@ -41,13 +40,13 @@ pub fn update_thread(config: &Config) {
         .cloned()
         .map(|x| Arc::new(x))
         .collect();
+    let content = Arc::clone(content);
+
     tokio::spawn(async move {
         let mut interval = interval(Duration::from_secs(update_interval));
-
         loop {
             interval.tick().await;
-
-            update_content(&sources).await;
+            update_content(&sources, &content).await;
         }
     });
 }
