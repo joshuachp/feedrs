@@ -34,12 +34,7 @@ async fn update_content(
 
 pub fn update_thread(config: &Config, content: &Arc<RwLock<HashMap<Arc<String>, Feed>>>) {
     let update_interval = config.update_interval;
-    let sources: Vec<Arc<String>> = config
-        .sources
-        .iter()
-        .cloned()
-        .map(|x| Arc::new(x))
-        .collect();
+    let sources: Vec<Arc<String>> = config.sources.iter().map(|x| Arc::clone(x)).collect();
     let content = Arc::clone(content);
 
     tokio::spawn(async move {

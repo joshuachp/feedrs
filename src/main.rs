@@ -45,6 +45,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     // Create database pool
     let _pool = database::create_database(&config.cache_uri)?;
 
+    // Map of the source url and content of the feeds.
     let content: Arc<RwLock<HashMap<Arc<String>, Feed>>> = Arc::new(RwLock::new(HashMap::new()));
 
     // Initialize TUI

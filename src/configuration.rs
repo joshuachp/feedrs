@@ -7,6 +7,7 @@ use std::fs::{create_dir_all, File};
 use std::io;
 use std::io::{BufReader, Read};
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
 
 // Configuration structure for serialization and deserialization
 #[derive(Deserialize, Debug, Eq, PartialEq)]
@@ -24,7 +25,7 @@ pub struct Config {
     pub cache_uri: String,
     // Defaults to 5 minutes
     pub update_interval: u64,
-    pub sources: HashSet<String>,
+    pub sources: HashSet<Arc<String>>,
 }
 
 /**
@@ -123,6 +124,7 @@ where
         .sources
         .unwrap_or_else(|| vec![])
         .into_iter()
+        .map(|x| Arc::new(x))
         .collect();
     let update_interval = value_t!(matches.value_of("update"), u64)
         .unwrap_or(config_file.update_interval.unwrap_or(300));
@@ -214,7 +216,7 @@ mod test {
         let home = env::var("HOME").unwrap();
         let sources = ["source_1", "source_2", "source_3"]
             .iter()
-            .map(|x| String::from(*x))
+            .map(|x| Arc::new(String::from(*x)))
             .collect();
         let expected = Config {
             config_path: PathBuf::from("tests/feedrs/feedrs.toml"),
