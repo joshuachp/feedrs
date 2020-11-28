@@ -11,6 +11,8 @@ use syndication::Feed;
 use termion::event::Key;
 use termion::input::TermRead;
 use termion::raw::{IntoRawMode, RawTerminal};
+use termion::screen::AlternateScreen;
+use tui::backend::Backend;
 use tui::backend::TermionBackend;
 use tui::layout::{Constraint, Direction, Layout};
 use tui::style::{Color, Modifier, Style};
@@ -42,10 +44,13 @@ fn input_thread(inputs: &Arc<Mutex<VecDeque<Key>>>) {
 }
 
 // TODO: Check for errors in unwraps and is just a test, maybe refactor
-fn draw(
-    terminal: &mut Terminal<TermionBackend<RawTerminal<Stdout>>>,
+fn draw<B>(
+    terminal: &mut Terminal<B>,
     content: &Arc<RwLock<HashMap<Arc<String>, Feed>>>,
-) -> io::Result<()> {
+) -> io::Result<()>
+where
+    B: Backend,
+{
     terminal.draw(|f| {
         let chunks = Layout::default()
             .direction(Direction::Horizontal)
@@ -104,14 +109,15 @@ async fn main() -> Result<(), Box<dyn Error>> {
     // Read configuration
     let config = configuration::config(std::env::args())?;
     // Create database pool
-    let _pool = database::create_database(&config.cache_uri)?;
+    // TODO: let _pool = database::create_database(&config.cache_uri)?;
 
     // Map of the source url and content of the feeds.
     let content: Arc<RwLock<HashMap<Arc<String>, Feed>>> = Arc::new(RwLock::new(HashMap::new()));
 
     // Initialize TUI
-    let stdout = io::stdout().into_raw_mode()?;
-    let backend = TermionBackend::new(stdout);
+    let stdout = io::stdout();
+    let screen = AlternateScreen::from(stdout);
+    let backend = TermionBackend::new(screen.into_raw_mode()?);
     let mut terminal = Terminal::new(backend)?;
 
     // Draws the area every 50 milliseconds
