@@ -22,7 +22,7 @@ struct ConfigFile {
 pub struct Config {
     pub config_path: PathBuf,
     // We leve here the database uri since we can't use the pool directly
-    pub cache_uri: String,
+    pub cache_path: PathBuf,
     // Defaults to 5 minutes
     pub update_interval: u64,
     pub sources: HashSet<Arc<String>>,
@@ -75,19 +75,17 @@ fn read_config_file(path: &Path) -> io::Result<ConfigFile> {
     }
 }
 
-fn create_cache_uri() -> io::Result<String> {
+fn create_cache_path() -> io::Result<PathBuf> {
     let mut cache = env::var("HOME").unwrap();
     cache.push_str("/.cache/feedrs/cache.db");
-    let path = Path::new(&cache);
+    let path = PathBuf::from(&cache);
     if !path.is_file() {
         // We only create the folders here since the database pool is initialized afterwards
         if let Some(parent) = path.parent() {
             create_dir_all(parent)?;
         }
     }
-    let mut uri = String::from("sqlite::");
-    uri.push_str(&cache);
-    Ok(uri)
+    Ok(path)
 }
 
 // Return a configuration instance
@@ -119,7 +117,7 @@ where
 
     let config_path = create_config_path(matches.value_of("config"))?;
     let config_file = read_config_file(&config_path)?;
-    let cache_uri = create_cache_uri()?;
+    let cache_path = create_cache_path()?;
     let sources = config_file
         .sources
         .unwrap_or_else(|| vec![])
@@ -131,7 +129,7 @@ where
 
     Ok(Config {
         config_path,
-        cache_uri,
+        cache_path,
         update_interval,
         sources,
     })
@@ -220,7 +218,7 @@ mod test {
             .collect();
         let expected = Config {
             config_path: PathBuf::from("tests/feedrs/feedrs.toml"),
-            cache_uri: format!("sqlite::{}/.cache/feedrs/cache.db", home),
+            cache_path: PathBuf::from(format!("{}/.cache/feedrs/cache.db", home)),
             update_interval: 200,
             sources,
         };

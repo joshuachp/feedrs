@@ -5,12 +5,11 @@ mod update;
 use std::collections::{HashMap, VecDeque};
 use std::error::Error;
 use std::io;
-use std::io::Stdout;
 use std::sync::{Arc, Mutex, RwLock};
 use syndication::Feed;
 use termion::event::Key;
 use termion::input::TermRead;
-use termion::raw::{IntoRawMode, RawTerminal};
+use termion::raw::IntoRawMode;
 use termion::screen::AlternateScreen;
 use tui::backend::Backend;
 use tui::backend::TermionBackend;
@@ -109,7 +108,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     // Read configuration
     let config = configuration::config(std::env::args())?;
     // Create database pool
-    // TODO: let _pool = database::create_database(&config.cache_uri)?;
+    let _pool = database::create_database(&config.cache_path).await?;
 
     // Map of the source url and content of the feeds.
     let content: Arc<RwLock<HashMap<Arc<String>, Feed>>> = Arc::new(RwLock::new(HashMap::new()));

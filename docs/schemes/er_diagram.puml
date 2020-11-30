@@ -1,11 +1,72 @@
 @startuml
 
-entity RSS {
-
+entity Sources {
+    * source
 }
 
-entity AtomFeeds {
-
+' This reflect the struct Channel https://docs.rs/rss/1.9.0/rss/struct.Channel.html
+entity RSS_Channel {
+    *source : String
+    --
+    title : String
+    link : String
+    description : String
+    ' The language of the channel.
+    language : Option<String>
+    copyright : Option<String>
+    managing_editor : Option<String>
+    webmaster : Option<String>
+    pub_date : Option<String>
+    last_build_date : Option<String>
+    ' The categories the channel belongs to.
+    categories : Vec<Category>
+    ' A string indicating the program used to generate the channel.
+    generator : Option<String>
+    ' A URL that points to the documentation for the RSS format.
+    docs : Option<String>
+    ' The cloud to register with to be notified of updates to the channel.
+    cloud : Option<Cloud>
+    ' The PICS rating for the channel.
+    rating : Option<String>
+    ' The number of minutes the channel can be cached before refreshing.
+    ttl : Option<String>
+    ' An image that can be displayed with the channel.
+    image : Option<Image>
+    ' A text input box that can be displayed with the channel.
+    text_input : Option<TextInput>
+    ' A hint to tell the aggregator which hours it can skip.
+    skip_hours : Vec<String>
+    ' A hint to tell the aggregator which days it can skip.
+    skip_days : Vec<String>
+    ' The items in the channel.
+    items : Vec<Item>
+    ' The extensions for the channel.
+    extensions : ExtensionMap
+    ' The iTunes extension for the channel.
+    itunes_ext : Option<itunes::ITunesChannelExtension>
+    ' The Dublin Core extension for the channel.
+    dublin_core_ext : Option<dublincore::DublinCoreExtension>
+    ' The Syndication extension for the channel.
+    syndication_ext : Option<syndication::SyndicationExtension>
+    ' The namespaces present in the RSS tag.
+    namespaces : HashMap<String String>
 }
+
+entity RSS_Entities {
+}
+
+entity Atom_Feeds {
+    * source
+    --
+}
+
+entity Atom_Items {
+}
+
+Sources "(1N)" --- "(11)" Atom_Feeds
+Sources "(1N)" --- "(11)" RSS_Channel
+
+RSS_Channel "(0N)" --- "(11)" RSS_Entities
+Atom_Feeds "(0N)" --- "(11)" Atom_Items
 
 @enduml
