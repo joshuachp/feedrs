@@ -14,8 +14,8 @@ reqwest = "0.10"
 # Parser
 syndication = "0.5"
 # TUI
-tui = "0.12"
-termion = "1.5"
+tui = { version = "0.12", features = ["crossterm"] }
+crossterm = "0.18"
 # Configuration
 clap = "2.33"
 serde = { version = "1.0", features = ["derive"] }

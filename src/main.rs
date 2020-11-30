@@ -1,42 +1,40 @@
-mod configuration;
-mod database;
-mod update;
-
+use crossterm::{
+    event::{read, Event, KeyCode, KeyEvent},
+    execute,
+    terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
+};
 use std::collections::{HashMap, VecDeque};
 use std::error::Error;
-use std::io;
 use std::sync::{Arc, Mutex, RwLock};
+use std::{io, io::stdout, io::Write};
 use syndication::Feed;
-use termion::event::Key;
-use termion::input::TermRead;
-use termion::raw::IntoRawMode;
-use termion::screen::AlternateScreen;
-use tui::backend::Backend;
-use tui::backend::TermionBackend;
+use tui::backend::{Backend, CrosstermBackend};
 use tui::layout::{Constraint, Direction, Layout};
 use tui::style::{Color, Modifier, Style};
 use tui::text::Spans;
 use tui::widgets::{Block, Borders, List, ListItem};
 use tui::Terminal;
 
-fn input_thread(inputs: &Arc<Mutex<VecDeque<Key>>>) {
-    let stdin = io::stdin();
+mod configuration;
+mod database;
+mod update;
+
+fn input_thread(inputs: &Arc<Mutex<VecDeque<KeyEvent>>>) {
     let inputs = Arc::clone(inputs);
     tokio::spawn(async move {
         loop {
-            // Wait for some time to get input
-            let stdin = stdin.lock();
-            let keys = stdin.keys();
-            // This loop never ends until q is pressed
-            for key in keys {
-                if let Ok(key) = key {
+            // Blocks until event/input
+            // TODO: Catch error
+            match read().unwrap() {
+                Event::Key(event) => {
                     let mut inputs = inputs.lock().unwrap();
-                    inputs.push_back(key);
+                    inputs.push_back(event);
 
-                    if key == Key::Char('q') {
+                    if event.code == KeyCode::Char('q') {
                         return;
                     }
                 }
+                _ => {}
             }
         }
     });
@@ -103,6 +101,12 @@ where
     Ok(())
 }
 
+fn close_application() -> crossterm::Result<()> {
+    execute!(stdout(), LeaveAlternateScreen)?;
+    disable_raw_mode()?;
+    Ok(())
+}
+
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
     // Read configuration
@@ -114,16 +118,17 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let content: Arc<RwLock<HashMap<Arc<String>, Feed>>> = Arc::new(RwLock::new(HashMap::new()));
 
     // Initialize TUI
-    let stdout = io::stdout();
-    let screen = AlternateScreen::from(stdout);
-    let backend = TermionBackend::new(screen.into_raw_mode()?);
+    enable_raw_mode()?;
+    let mut std_out = io::stdout();
+    execute!(std_out, EnterAlternateScreen)?;
+    let backend = CrosstermBackend::new(std_out);
     let mut terminal = Terminal::new(backend)?;
 
     // Draws the area every 50 milliseconds
     let mut interval = tokio::time::interval(tokio::time::Duration::from_millis(50));
 
     // FIFO of the inputs
-    let inputs = Arc::new(Mutex::new(VecDeque::<Key>::new()));
+    let inputs = Arc::new(Mutex::new(VecDeque::<KeyEvent>::new()));
     // Flag for closing all threads
 
     // Starts user input thread
@@ -132,9 +137,6 @@ async fn main() -> Result<(), Box<dyn Error>> {
     // Starts update thread
     update::update_thread(&config, &content);
 
-    // Clear the terminal before drawing
-    terminal.clear()?;
-
     loop {
         // Drawing tick
         interval.tick().await;
@@ -142,9 +144,10 @@ async fn main() -> Result<(), Box<dyn Error>> {
         draw(&mut terminal, &content)?;
 
         let mut inputs = inputs.lock().unwrap();
-        for key in inputs.drain(..) {
-            match key {
-                Key::Char('q') => {
+        for event in inputs.drain(..) {
+            match event.code {
+                KeyCode::Char('q') => {
+                    close_application()?;
                     return Ok(());
                 }
                 _ => {}
