@@ -4,7 +4,6 @@ use crossterm::{
     terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
 };
 use std::collections::{HashMap, VecDeque};
-use std::error::Error;
 use std::sync::{Arc, Mutex, RwLock};
 use std::{io, io::stdout, io::Write};
 use syndication::Feed;
@@ -108,7 +107,7 @@ fn close_application() -> crossterm::Result<()> {
 }
 
 #[tokio::main]
-async fn main() -> Result<(), Box<dyn Error>> {
+async fn main() -> anyhow::Result<()> {
     // Read configuration
     let config = configuration::config(std::env::args())?;
     // Create database pool

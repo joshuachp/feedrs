@@ -70,8 +70,8 @@ fn read_config_file(path: &Path) -> io::Result<ConfigFile> {
     buf_reader.read_to_string(&mut contents)?;
     match toml::from_str(&contents) {
         Ok(config_file) => Ok(config_file),
-        // Converting this to an `io::Error` removes some information than just panicking
-        Err(err) => panic!("{}", err),
+        // Convert error from serde to io to pass it down
+        Err(err) => Err(io::Error::new(io::ErrorKind::Other, err)),
     }
 }
 
@@ -196,14 +196,13 @@ mod test {
     }
 
     #[test]
-    #[should_panic]
-    fn test_read_config_file_panic() {
-        // Read malformed toml file
-        let _ = read_config_file(Path::new("tests/test_err.toml"));
+    fn test_read_config_file_err_malformed() {
+        let config_file = read_config_file(Path::new("tests/test_err.toml"));
+        assert!(config_file.is_err());
     }
 
     #[test]
-    fn test_read_config_file_err() {
+    fn test_read_config_file_err_not_exists() {
         let config_file = read_config_file(Path::new("does/not/exists.toml"));
         assert!(config_file.is_err());
     }

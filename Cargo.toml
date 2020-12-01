@@ -5,6 +5,7 @@ authors = ["Joshua Chapman <joshua.samuel.chapman@protonmail.com>"]
 edition = "2018"
 
 [dependencies]
+anyhow = "1.0"
 # TODO: Remove unnecessary features ( probably only ["rt-threaded","macros",
 # "time"] are needed)
 # TODO: Upgrade to tokio 0.3 when it will be supported by reqwest
