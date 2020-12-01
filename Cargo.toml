@@ -13,6 +13,7 @@ tokio = { version = "0.2", features = ["full"] }
 reqwest = "0.10"
 # Parser
 syndication = "0.5"
+rss = "1.9"
 # TUI
 tui = { version = "0.12", features = ["crossterm"] }
 crossterm = "0.18"

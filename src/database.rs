@@ -1,10 +1,51 @@
+use rss::{Channel, ChannelBuilder};
 use sqlx::sqlite::SqliteConnectOptions;
 use sqlx::Executor;
+use sqlx::FromRow;
 use sqlx::SqlitePool;
 use std::path::Path;
 use std::sync::Arc;
 
-pub async fn create_database(path: &Path) -> sqlx::Result<Arc<SqlitePool>> {
+#[derive(FromRow)]
+struct SqlRssChannel {
+    source: String,
+    title: String,
+    link: String,
+    description: String,
+    language: Option<String>,
+    copyright: Option<String>,
+    managing_editor: Option<String>,
+    webmaster: Option<String>,
+    pub_date: Option<String>,
+    last_build_date: Option<String>,
+    generator: Option<String>,
+    docs: Option<String>,
+    rating: Option<String>,
+    ttl: Option<String>,
+}
+
+impl From<SqlRssChannel> for Channel {
+    fn from(channel: SqlRssChannel) -> Self {
+        ChannelBuilder::default()
+            .title(channel.title)
+            .link(channel.link)
+            .description(channel.description)
+            .language(channel.language)
+            .copyright(channel.copyright)
+            .managing_editor(channel.managing_editor)
+            .webmaster(channel.webmaster)
+            .pub_date(channel.pub_date)
+            .last_build_date(channel.last_build_date)
+            .generator(channel.generator)
+            .docs(channel.docs)
+            .rating(channel.rating)
+            .ttl(channel.ttl)
+            .build()
+            .unwrap()
+    }
+}
+
+pub fn create_database(path: &Path) -> sqlx::Result<Arc<SqlitePool>> {
     // The pool create asynchronously
     let pool = Arc::new(SqlitePool::connect_lazy_with(
         SqliteConnectOptions::new()
@@ -43,6 +84,7 @@ pub async fn create_database(path: &Path) -> sqlx::Result<Arc<SqlitePool>> {
             // syndication_ext: Option<syndication::SyndicationExtension>,
             // The namespaces present in the RSS tag.
             // namespaces: HashMap<String, String>,
+            // image
             "CREATE TABLE IF NOT EXISTS RSS_Channels (
                 source TEXT
                     PRIMARY KEY 
@@ -62,7 +104,6 @@ pub async fn create_database(path: &Path) -> sqlx::Result<Arc<SqlitePool>> {
                 docs TEXT,
                 rating TEXT,
                 ttl TEXT,
-                image TEXT,
             )",
         );
         trans.execute(
@@ -101,4 +142,32 @@ pub async fn create_database(path: &Path) -> sqlx::Result<Arc<SqlitePool>> {
     });
 
     Ok(pool)
+}
+
+pub async fn get_all(pool: &Arc<SqlitePool>) -> sqlx::Result<()> {
+    let mut conn = pool.acquire().await?;
+    let channels: Vec<SqlRssChannel> = sqlx::query_as(
+        "SELECT 
+            source
+            title,
+            link,
+            description,
+            language,
+            copyright,
+            managing_editor,
+            webmaster,
+            pub_date,
+            last_build_date,
+            generator,
+            docs,
+            rating,
+            ttl,
+            image,
+        FROM RSS_Channels",
+    )
+    .fetch_all(&mut conn)
+    .await?;
+    let channels: Vec<Channel> = channels.into_iter().map(|x| Channel::from(x)).collect();
+
+    Ok(())
 }

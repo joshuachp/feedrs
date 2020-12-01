@@ -112,7 +112,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     // Read configuration
     let config = configuration::config(std::env::args())?;
     // Create database pool
-    let _pool = database::create_database(&config.cache_path).await?;
+    let _pool = database::create_database(&config.cache_path)?;
 
     // Map of the source url and content of the feeds.
     let content: Arc<RwLock<HashMap<Arc<String>, Feed>>> = Arc::new(RwLock::new(HashMap::new()));
