@@ -1,10 +1,12 @@
-use rss::{Channel, ChannelBuilder};
-use sqlx::sqlite::SqliteConnectOptions;
-use sqlx::Executor;
-use sqlx::FromRow;
-use sqlx::SqlitePool;
-use std::path::Path;
-use std::sync::Arc;
+use rss::{Channel, ChannelBuilder, Item, ItemBuilder};
+use sqlx::{sqlite::SqliteConnectOptions, Executor, FromRow, SqlitePool};
+use std::{
+    collections::HashMap,
+    path::Path,
+    sync::{Arc, RwLock},
+};
+use syndication::Feed;
+use tokio::sync::mpsc;
 
 #[derive(FromRow)]
 struct SqlRssChannel {
@@ -22,6 +24,17 @@ struct SqlRssChannel {
     docs: Option<String>,
     rating: Option<String>,
     ttl: Option<String>,
+}
+
+#[derive(FromRow)]
+struct SqlRssItem {
+    title: Option<String>,
+    link: Option<String>,
+    description: Option<String>,
+    author: Option<String>,
+    comments: Option<String>,
+    pub_date: Option<String>,
+    content: Option<String>,
 }
 
 impl From<SqlRssChannel> for Channel {
@@ -45,7 +58,22 @@ impl From<SqlRssChannel> for Channel {
     }
 }
 
-pub fn create_database(path: &Path) -> sqlx::Result<Arc<SqlitePool>> {
+impl From<SqlRssItem> for Item {
+    fn from(item: SqlRssItem) -> Self {
+        ItemBuilder::default()
+            .title(item.title)
+            .link(item.link)
+            .description(item.description)
+            .author(item.author)
+            .comments(item.comments)
+            .pub_date(item.pub_date)
+            .content(item.content)
+            .build()
+            .unwrap()
+    }
+}
+
+pub async fn create_database(path: &Path) -> sqlx::Result<Arc<SqlitePool>> {
     // The pool create asynchronously
     let pool = Arc::new(SqlitePool::connect_lazy_with(
         SqliteConnectOptions::new()
@@ -53,18 +81,19 @@ pub fn create_database(path: &Path) -> sqlx::Result<Arc<SqlitePool>> {
             .create_if_missing(true),
     ));
 
-    let t_pool = Arc::clone(&pool);
-    tokio::spawn(async move {
-        // TODO: Log error
-        let mut trans = t_pool.begin().await.unwrap();
+    // TODO: Log error
+    let mut trans = pool.begin().await?;
 
-        // TODO: Database tables
-        trans.execute(
+    // TODO: Database tables
+    trans
+        .execute(
             "CREATE TABLE IF NOT EXISTS Sources (
                 sources TEXT PRIMARY KEY
             )",
-        );
-        trans.execute(
+        )
+        .await?;
+    trans
+        .execute(
             // TODO: categories: Vec<Category>, cloud: Option<Cloud>
             // A text input box that can be displayed with the channel.
             // text_input: Option<TextInput>,
@@ -103,10 +132,12 @@ pub fn create_database(path: &Path) -> sqlx::Result<Arc<SqlitePool>> {
                 generator TEXT,
                 docs TEXT,
                 rating TEXT,
-                ttl TEXT,
+                ttl TEXT
             )",
-        );
-        trans.execute(
+        )
+        .await?;
+    trans
+        .execute(
             // TODO: Following
             // The categories the item belongs to.
             // categories: Vec<Category>,
@@ -122,29 +153,31 @@ pub fn create_database(path: &Path) -> sqlx::Result<Arc<SqlitePool>> {
             // The Dublin Core extension for the item.
             // dublin_core_ext: Option<dublincore::DublinCoreExtension>,
             "CREATE TABLE IF NOT EXISTS RSS_Items (
+                source TEXT NOT NULL
+                    REFERENCES RSS_Channels (source)
+                    ON DELETE CASCADE
+                    ON UPDATE CASCADE,
                 title TEXT,
                 link TEXT,
                 description TEXT,
                 author TEXT,
                 comments TEXT,
                 pub_date TEXT,
-                /// The RSS channel the item came from.
-                source TEXT NOT NULL
-                    REFERENCES RSS_Channels (source)
-                    ON DELETE CASCADE
-                    ON UPDATE CASCADE,
-                content TEXT,
+                content TEXT
             )",
-        );
-        // trans.execute("CREATE TABLE IF NOT EXISTS Atom_Feeds ()");
-        // TODO: Check result
-        trans.commit().await.unwrap();
-    });
+        )
+        .await?;
+    // trans.execute("CREATE TABLE IF NOT EXISTS Atom_Feeds ()");
+    // TODO: Check result
+    trans.commit().await?;
 
     Ok(pool)
 }
 
-pub async fn get_all(pool: &Arc<SqlitePool>) -> sqlx::Result<()> {
+pub async fn get_all(
+    pool: &Arc<SqlitePool>,
+    content: &RwLock<HashMap<Arc<String>, Feed>>,
+) -> sqlx::Result<()> {
     let mut conn = pool.acquire().await?;
     let channels: Vec<SqlRssChannel> = sqlx::query_as(
         "SELECT 
@@ -161,13 +194,52 @@ pub async fn get_all(pool: &Arc<SqlitePool>) -> sqlx::Result<()> {
             generator,
             docs,
             rating,
-            ttl,
-            image,
+            ttl
         FROM RSS_Channels",
     )
     .fetch_all(&mut conn)
     .await?;
-    let channels: Vec<Channel> = channels.into_iter().map(|x| Channel::from(x)).collect();
 
+    if channels.len() > 0 {
+        let (tx, mut rx) = mpsc::channel(channels.len());
+        for channel in channels {
+            let pool = Arc::clone(pool);
+            let mut tx = tx.clone();
+            tokio::spawn(async move {
+                let source = Arc::new(channel.source.clone());
+                let items = get_rss_items(&source, &pool).await.unwrap();
+                let mut channel = Channel::from(channel);
+                channel.set_items(items);
+                tx.send((source, channel)).await.unwrap();
+            });
+        }
+        drop(tx);
+
+        let mut content = content.write().unwrap();
+        while let Some((source, res)) = rx.recv().await {
+            content.insert(source, Feed::RSS(res));
+        }
+    }
     Ok(())
+}
+
+async fn get_rss_items(source: &str, pool: &Arc<SqlitePool>) -> sqlx::Result<Vec<Item>> {
+    let mut conn = pool.acquire().await?;
+    let items: Vec<SqlRssItem> = sqlx::query_as(
+        "SELECT
+            title,
+            link,
+            description,
+            author,
+            comments,
+            pub_date,
+            content
+        FROM RSS_Items
+        WHERE source = ?",
+    )
+    .bind(source)
+    .fetch_all(&mut conn)
+    .await?;
+    let items: Vec<Item> = items.into_iter().map(|x| Item::from(x)).collect();
+    Ok(items)
 }

@@ -3,19 +3,21 @@ use crossterm::{
     execute,
     terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
 };
-use std::collections::{HashMap, VecDeque};
-use std::sync::{Arc, Mutex, RwLock};
-use std::{io, io::stdout, io::Write};
+use database::get_all;
+use std::{
+    collections::{HashMap, VecDeque},
+    io,
+    io::stdout,
+    io::Write,
+    sync::{Arc, Mutex, RwLock},
+};
 use syndication::Feed;
-use tui::backend::{Backend, CrosstermBackend};
-use tui::layout::{Constraint, Direction, Layout};
-use tui::style::{Color, Modifier, Style};
-use tui::text::Spans;
-use tui::widgets::{Block, Borders, List, ListItem};
-use tui::Terminal;
+use tui::{backend::CrosstermBackend, Terminal};
+use update::update_thread;
 
 mod configuration;
 mod database;
+mod draw;
 mod update;
 
 fn input_thread(inputs: &Arc<Mutex<VecDeque<KeyEvent>>>) {
@@ -39,67 +41,6 @@ fn input_thread(inputs: &Arc<Mutex<VecDeque<KeyEvent>>>) {
     });
 }
 
-// TODO: Check for errors in unwraps and is just a test, maybe refactor
-fn draw<B>(
-    terminal: &mut Terminal<B>,
-    content: &Arc<RwLock<HashMap<Arc<String>, Feed>>>,
-) -> io::Result<()>
-where
-    B: Backend,
-{
-    terminal.draw(|f| {
-        let chunks = Layout::default()
-            .direction(Direction::Horizontal)
-            .constraints([Constraint::Percentage(100)].as_ref())
-            .split(f.size());
-
-        let content = content.read().unwrap();
-
-        let items: Vec<ListItem> = content
-            .values()
-            .flat_map(|feed| match feed {
-                Feed::Atom(feed) => feed
-                    .entries()
-                    .iter()
-                    .map(|entry| {
-                        let lines = vec![
-                            Spans::from(entry.title()),
-                            Spans::from(entry.summary().unwrap()),
-                        ];
-                        return ListItem::new(lines)
-                            .style(Style::default().fg(Color::Black).bg(Color::White));
-                    })
-                    .collect::<Vec<ListItem>>(),
-
-                Feed::RSS(feed) => feed
-                    .items()
-                    .iter()
-                    .map(|entry| {
-                        let lines = vec![
-                            Spans::from(entry.title().unwrap()),
-                            Spans::from(entry.description().unwrap()),
-                        ];
-                        return ListItem::new(lines)
-                            .style(Style::default().fg(Color::Black).bg(Color::White));
-                    })
-                    .collect::<Vec<ListItem>>(),
-            })
-            .collect();
-
-        let items = List::new(items)
-            .block(Block::default().borders(Borders::ALL).title("List"))
-            .highlight_style(
-                Style::default()
-                    .bg(Color::LightGreen)
-                    .add_modifier(Modifier::BOLD),
-            )
-            .highlight_symbol(">> ");
-        f.render_widget(items, chunks[0]);
-    })?;
-
-    Ok(())
-}
-
 fn close_application() -> crossterm::Result<()> {
     execute!(stdout(), LeaveAlternateScreen)?;
     disable_raw_mode()?;
@@ -111,10 +52,11 @@ async fn main() -> anyhow::Result<()> {
     // Read configuration
     let config = configuration::config(std::env::args())?;
     // Create database pool
-    let _pool = database::create_database(&config.cache_path)?;
+    let pool = database::create_database(&config.cache_path).await?;
 
     // Map of the source url and content of the feeds.
     let content: Arc<RwLock<HashMap<Arc<String>, Feed>>> = Arc::new(RwLock::new(HashMap::new()));
+    get_all(&pool, &content).await?;
 
     // Initialize TUI
     enable_raw_mode()?;
@@ -134,13 +76,13 @@ async fn main() -> anyhow::Result<()> {
     input_thread(&inputs);
 
     // Starts update thread
-    update::update_thread(&config, &content);
+    update_thread(&config, &content);
 
     loop {
         // Drawing tick
         interval.tick().await;
 
-        draw(&mut terminal, &content)?;
+        draw::main_view(&mut terminal, &content)?;
 
         let mut inputs = inputs.lock().unwrap();
         for event in inputs.drain(..) {

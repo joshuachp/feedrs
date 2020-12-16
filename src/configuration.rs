@@ -1,13 +1,14 @@
 use clap::{crate_description, crate_name, crate_version, value_t, App, Arg};
 use serde::Deserialize;
-use std::collections::HashSet;
-use std::env;
-use std::ffi::OsString;
-use std::fs::{create_dir_all, File};
-use std::io;
-use std::io::{BufReader, Read};
-use std::path::{Path, PathBuf};
-use std::sync::Arc;
+use std::{
+    collections::HashSet,
+    env,
+    ffi::OsString,
+    fs::{create_dir_all, File},
+    io::{self, BufReader, Read},
+    path::{Path, PathBuf},
+    sync::Arc,
+};
 
 // Configuration structure for serialization and deserialization
 #[derive(Deserialize, Debug, Eq, PartialEq)]
