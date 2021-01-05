@@ -15,6 +15,7 @@ reqwest = "0.10"
 # Parser
 syndication = "0.5"
 rss = "1.9"
+scraper = "0.12"
 # TUI
 tui = { version = "0.12", features = ["crossterm"] }
 crossterm = "0.18"

@@ -1,9 +1,4 @@
-use std::{
-    collections::HashMap,
-    io,
-    sync::{Arc, RwLock},
-};
-use syndication::Feed;
+use std::{collections::HashSet, io, sync::RwLock};
 use tui::{
     backend::Backend,
     layout::{Constraint, Direction, Layout},
@@ -15,10 +10,12 @@ use tui::{
     Terminal,
 };
 
+use crate::content::Article;
+
 // TODO: Check for errors in unwraps and is just a test, maybe refactor
 pub fn main_view<B>(
     terminal: &mut Terminal<B>,
-    content: &RwLock<HashMap<Arc<String>, Feed>>,
+    content: &RwLock<HashSet<Article>>,
 ) -> io::Result<()>
 where
     B: Backend,
@@ -32,33 +29,13 @@ where
         let content = content.read().unwrap();
 
         let items: Vec<ListItem> = content
-            .values()
-            .flat_map(|feed| match feed {
-                Feed::Atom(feed) => feed
-                    .entries()
-                    .iter()
-                    .map(|entry| {
-                        let lines = vec![
-                            Spans::from(entry.title()),
-                            Spans::from(entry.summary().unwrap()),
-                        ];
-                        return ListItem::new(lines)
-                            .style(Style::default().fg(Color::Black).bg(Color::White));
-                    })
-                    .collect::<Vec<ListItem>>(),
-
-                Feed::RSS(feed) => feed
-                    .items()
-                    .iter()
-                    .map(|entry| {
-                        let lines = vec![
-                            Spans::from(entry.title().unwrap()),
-                            Spans::from(entry.description().unwrap()),
-                        ];
-                        return ListItem::new(lines)
-                            .style(Style::default().fg(Color::Black).bg(Color::White));
-                    })
-                    .collect::<Vec<ListItem>>(),
+            .iter()
+            .map(|article| {
+                let lines = vec![
+                    Spans::from(article.title.clone()),
+                    Spans::from(article.sub_title.clone()),
+                ];
+                ListItem::new(lines)
             })
             .collect();
 
