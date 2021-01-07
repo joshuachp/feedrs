@@ -5,22 +5,22 @@ use crossterm::{
 };
 use database::get_all;
 use std::{
-    collections::{HashSet, VecDeque},
+    collections::VecDeque,
     io,
     io::stdout,
     io::Write,
-    sync::{Arc, Mutex, RwLock},
+    sync::{Arc, Mutex},
 };
 use tui::{backend::CrosstermBackend, Terminal};
-use update::update_thread;
 
 mod configuration;
 mod content;
 mod database;
-mod draw;
+mod ui;
 mod update;
 
-use content::Article;
+use crate::ui::App;
+use crate::update::update_thread;
 
 fn input_thread(inputs: &Arc<Mutex<VecDeque<KeyEvent>>>) {
     let inputs = Arc::clone(inputs);
@@ -54,17 +54,17 @@ async fn main() -> anyhow::Result<()> {
     let config = configuration::config(std::env::args())?;
     // Create database pool
     let pool = database::create_database(&config.cache_path).await?;
-    // Map of the source url and content of the feeds.
-    let content: Arc<RwLock<HashSet<Article>>> = Arc::new(RwLock::new(HashSet::new()));
-    // Request all the content
-    get_all(&pool, &content).await?;
-    // Initialize TU
+    // Initialize UI
     enable_raw_mode()?;
     let mut std_out = io::stdout();
     // Open another screen to clean the output
     execute!(std_out, EnterAlternateScreen)?;
     let backend = CrosstermBackend::new(std_out);
     let mut terminal = Terminal::new(backend)?;
+    let mut app = App::new();
+    app.list_state.select(Some(0));
+    // Request all the content
+    get_all(&pool, &app.content).await?;
     // Draws the area every 50 milliseconds
     let mut interval = tokio::time::interval(tokio::time::Duration::from_millis(50));
     // FIFO of the inputs
@@ -72,7 +72,7 @@ async fn main() -> anyhow::Result<()> {
     // Starts user input thread
     input_thread(&inputs);
     // Starts update thread
-    update_thread(&config, &content);
+    update_thread(&config, &app.content);
     // Main loop
     loop {
         // Drawing tick
@@ -81,10 +81,11 @@ async fn main() -> anyhow::Result<()> {
         let mut inputs = inputs.lock().unwrap();
         for event in inputs.drain(..) {
             match event.code {
-                KeyCode::Char('h') => {}
-                KeyCode::Char('j') => {}
-                KeyCode::Char('k') => {}
-                KeyCode::Char('l') => {}
+                KeyCode::Char('h') | KeyCode::Left => {}
+                KeyCode::Char('j') | KeyCode::Down => app.list_next(),
+                KeyCode::Char('k') | KeyCode::Up => app.list_previous(),
+                KeyCode::Char('l') | KeyCode::Right => {}
+                KeyCode::Enter => {}
                 KeyCode::Char('q') => {
                     close_application()?;
                     return Ok(());
@@ -93,6 +94,6 @@ async fn main() -> anyhow::Result<()> {
             }
         }
 
-        draw::main_view(&mut terminal, &content)?;
+        app.main_view(&mut terminal)?;
     }
 }
