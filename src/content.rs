@@ -4,7 +4,7 @@ use sqlx::FromRow;
 use std::hash::{Hash, Hasher};
 use syndication::Feed;
 
-#[derive(FromRow, PartialEq, Eq)]
+#[derive(FromRow, PartialEq, Eq, Clone)]
 pub struct Article {
     pub id: String,
     pub source: String,

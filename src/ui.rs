@@ -8,34 +8,51 @@ use tui::{
     layout::{Constraint, Direction, Layout},
     style::{Color, Modifier, Style},
     text::Spans,
-    widgets::{Block, Borders, List, ListItem, ListState},
+    widgets::{Block, Borders, List, ListItem, ListState, Paragraph, Wrap},
     Terminal,
 };
 
 use crate::content::Article;
 
-pub struct App {
+pub struct App<B>
+where
+    B: Backend,
+{
     // Set of the articles
     pub content: Arc<RwLock<HashSet<Article>>>,
     // List state
     pub list_state: ListState,
+    // TUI terminal
+    pub terminal: Terminal<B>,
+    pub view_article: bool,
 }
 
-impl App {
-    pub fn new() -> App {
-        App {
+impl<B> App<B>
+where
+    B: Backend,
+{
+    pub fn new(terminal: Terminal<B>) -> App<B> {
+        App::<B> {
             content: Arc::new(RwLock::new(HashSet::new())),
             list_state: ListState::default(),
+            terminal,
+            view_article: false,
+        }
+    }
+
+    pub fn draw(&mut self) -> io::Result<()> {
+        if self.view_article {
+            self.draw_article_view()
+        } else {
+            self.draw_main_view()
         }
     }
 
     // TODO: Check for errors in unwraps and is just a test, maybe refactor
-    pub fn main_view<B>(&mut self, terminal: &mut Terminal<B>) -> io::Result<()>
-    where
-        B: Backend,
-    {
-        let content = Arc::clone(&self.content);
-        terminal.draw(|f| {
+    fn draw_main_view(&mut self) -> io::Result<()> {
+        let content = &self.content;
+        let list_state = &mut self.list_state;
+        self.terminal.draw(|f| {
             let chunks = Layout::default()
                 .direction(Direction::Horizontal)
                 .constraints([Constraint::Percentage(100)].as_ref())
@@ -62,10 +79,41 @@ impl App {
                         .add_modifier(Modifier::BOLD),
                 )
                 .highlight_symbol(">> ");
-            f.render_stateful_widget(items, chunks[0], &mut self.list_state);
-        })?;
+            f.render_stateful_widget(items, chunks[0], list_state);
+        })
+    }
 
-        Ok(())
+    fn draw_article_view(&mut self) -> io::Result<()> {
+        let index = self.list_state.selected();
+        if let Some(index) = index {
+            let article: Article;
+            {
+                let content = self.content.read().unwrap();
+                let mut content = content.iter();
+                for _ in 0..index {
+                    content.next();
+                }
+                article = content.next().unwrap().clone();
+            }
+            self.terminal.draw(|f| {
+                let chunks = Layout::default()
+                    .direction(Direction::Horizontal)
+                    .constraints([Constraint::Percentage(100)].as_ref())
+                    .split(f.size());
+
+                let text = vec![
+                    Spans::from(article.title),
+                    Spans::from(article.sub_title),
+                    Spans::from(article.content),
+                ];
+                let paragraph = Paragraph::new(text)
+                    .block(Block::default().title("Article").borders(Borders::ALL))
+                    .wrap(Wrap { trim: false });
+                f.render_widget(paragraph, chunks[0]);
+            })
+        } else {
+            self.draw_main_view()
+        }
     }
 
     pub fn list_next(&mut self) {

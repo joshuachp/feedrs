@@ -60,9 +60,8 @@ async fn main() -> anyhow::Result<()> {
     // Open another screen to clean the output
     execute!(std_out, EnterAlternateScreen)?;
     let backend = CrosstermBackend::new(std_out);
-    let mut terminal = Terminal::new(backend)?;
-    let mut app = App::new();
-    app.list_state.select(Some(0));
+    let terminal = Terminal::new(backend)?;
+    let mut app = App::new(terminal);
     // Request all the content
     get_all(&pool, &app.content).await?;
     // Draws the area every 50 milliseconds
@@ -81,11 +80,20 @@ async fn main() -> anyhow::Result<()> {
         let mut inputs = inputs.lock().unwrap();
         for event in inputs.drain(..) {
             match event.code {
-                KeyCode::Char('h') | KeyCode::Left => {}
+                KeyCode::Char('h') | KeyCode::Left => {
+                    app.view_article = false;
+                }
                 KeyCode::Char('j') | KeyCode::Down => app.list_next(),
                 KeyCode::Char('k') | KeyCode::Up => app.list_previous(),
-                KeyCode::Char('l') | KeyCode::Right => {}
-                KeyCode::Enter => {}
+                KeyCode::Char('l') | KeyCode::Right => {
+                    app.view_article = true;
+                }
+                KeyCode::Enter => {
+                    app.view_article = true;
+                }
+                KeyCode::Esc => {
+                    app.view_article = false;
+                }
                 KeyCode::Char('q') => {
                     close_application()?;
                     return Ok(());
@@ -94,6 +102,6 @@ async fn main() -> anyhow::Result<()> {
             }
         }
 
-        app.main_view(&mut terminal)?;
+        app.draw()?;
     }
 }
