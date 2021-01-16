@@ -1,4 +1,3 @@
-use anyhow;
 use html2text::from_read;
 use sqlx::FromRow;
 use std::hash::{Hash, Hasher};
