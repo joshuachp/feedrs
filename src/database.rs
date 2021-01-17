@@ -1,19 +1,15 @@
 use sqlx::{sqlite::SqliteConnectOptions, Executor, SqlitePool};
-use std::{
-    collections::HashSet,
-    path::Path,
-    sync::{Arc, RwLock},
-};
+use std::{collections::HashSet, path::Path, sync::RwLock};
 
 use crate::content::Article;
 
-pub async fn create_database(path: &Path) -> sqlx::Result<Arc<SqlitePool>> {
+pub async fn create_database(path: &Path) -> sqlx::Result<SqlitePool> {
     // The pool create asynchronously
-    let pool = Arc::new(SqlitePool::connect_lazy_with(
+    let pool = SqlitePool::connect_lazy_with(
         SqliteConnectOptions::new()
             .filename(path)
             .create_if_missing(true),
-    ));
+    );
 
     // TODO: Log error
     let mut trans = pool.begin().await?;
@@ -36,10 +32,7 @@ pub async fn create_database(path: &Path) -> sqlx::Result<Arc<SqlitePool>> {
     Ok(pool)
 }
 
-pub async fn get_all(
-    pool: &Arc<SqlitePool>,
-    content: &RwLock<HashSet<Article>>,
-) -> sqlx::Result<()> {
+pub async fn get_all(pool: &SqlitePool, content: &RwLock<HashSet<Article>>) -> sqlx::Result<()> {
     let mut conn = pool.acquire().await?;
     let articles: Vec<Article> = sqlx::query_as(
         "SELECT 

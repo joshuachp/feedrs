@@ -1,16 +1,10 @@
 use crossterm::{
-    event::{read, Event, KeyCode, KeyEvent},
+    event::{Event, KeyCode, KeyEvent},
     execute,
     terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
 };
-use database::get_all;
-use std::{
-    collections::VecDeque,
-    io,
-    io::stdout,
-    io::Write,
-    sync::{Arc, Mutex},
-};
+use std::{io, io::stdout, io::Write};
+use tokio::sync::{mpsc, mpsc::error::TryRecvError};
 use tui::{backend::CrosstermBackend, Terminal};
 
 mod configuration;
@@ -20,23 +14,25 @@ mod ui;
 mod update;
 
 use crate::ui::App;
-use crate::update::update_thread;
 
-fn input_thread(inputs: &Arc<Mutex<VecDeque<KeyEvent>>>) {
-    let inputs = Arc::clone(inputs);
+fn input_thread(mut sender: mpsc::Sender<KeyEvent>) {
     tokio::spawn(async move {
         loop {
             // Blocks until event/input
-            // TODO: Catch error
-            match read().unwrap() {
-                Event::Key(event) => {
-                    let mut inputs = inputs.lock().unwrap();
-                    inputs.push_back(event);
-                    if event.code == KeyCode::Char('q') {
-                        return;
+            match crossterm::event::read() {
+                Ok(event) => {
+                    if let Event::Key(event) = event {
+                        if let Err(err) = sender.send(event).await {
+                            panic!("{}", err);
+                        }
+                        if event.code == KeyCode::Char('q') {
+                            return;
+                        }
                     }
                 }
-                _ => {}
+                Err(err) => {
+                    panic!("{}", err);
+                }
             }
         }
     });
@@ -63,42 +59,50 @@ async fn main() -> anyhow::Result<()> {
     let terminal = Terminal::new(backend)?;
     let mut app = App::new(terminal);
     // Request all the content
-    get_all(&pool, &app.content).await?;
+    database::get_all(&pool, &app.content).await?;
     // Draws the area every 50 milliseconds
     let mut interval = tokio::time::interval(tokio::time::Duration::from_millis(50));
-    // FIFO of the inputs
-    let inputs = Arc::new(Mutex::new(VecDeque::<KeyEvent>::new()));
+    // Input thread channel
+    // NOTE: Buffer up to 10 keys
+    let (sender, mut reciver) = mpsc::channel(10);
     // Starts user input thread
-    input_thread(&inputs);
+    input_thread(sender);
     // Starts update thread
-    update_thread(&config, &app.content);
+    update::update_thread(&config, &app.content);
     // Main loop
     loop {
         // Drawing tick
         interval.tick().await;
-        // Get new inputs
-        let mut inputs = inputs.lock().unwrap();
-        for event in inputs.drain(..) {
-            match event.code {
-                KeyCode::Char('h') | KeyCode::Left => {
-                    app.view_article = false;
+        loop {
+            match reciver.try_recv() {
+                Ok(event) => match event.code {
+                    KeyCode::Char('h') | KeyCode::Left => {
+                        app.view_article = false;
+                    }
+                    KeyCode::Char('j') | KeyCode::Down => app.list_next(),
+                    KeyCode::Char('k') | KeyCode::Up => app.list_previous(),
+                    KeyCode::Char('l') | KeyCode::Right => {
+                        app.view_article = true;
+                    }
+                    KeyCode::Enter => {
+                        app.view_article = true;
+                    }
+                    KeyCode::Esc => {
+                        app.view_article = false;
+                    }
+                    KeyCode::Char('q') => {
+                        close_application()?;
+                        return Ok(());
+                    }
+                    _ => {}
+                },
+                Err(TryRecvError::Empty) => {
+                    break;
                 }
-                KeyCode::Char('j') | KeyCode::Down => app.list_next(),
-                KeyCode::Char('k') | KeyCode::Up => app.list_previous(),
-                KeyCode::Char('l') | KeyCode::Right => {
-                    app.view_article = true;
-                }
-                KeyCode::Enter => {
-                    app.view_article = true;
-                }
-                KeyCode::Esc => {
-                    app.view_article = false;
-                }
-                KeyCode::Char('q') => {
+                Err(err @ TryRecvError::Closed) => {
                     close_application()?;
-                    return Ok(());
+                    panic!(err);
                 }
-                _ => {}
             }
         }
 
