@@ -1,5 +1,5 @@
 use std::{
-    collections::HashSet,
+    collections::BTreeSet,
     io,
     sync::{Arc, RwLock},
 };
@@ -19,7 +19,7 @@ where
     B: Backend,
 {
     // Set of the articles
-    pub content: Arc<RwLock<HashSet<Article>>>,
+    pub content: Arc<RwLock<BTreeSet<Article>>>,
     // List state
     pub list_state: ListState,
     // TUI terminal
@@ -33,7 +33,7 @@ where
 {
     pub fn new(terminal: Terminal<B>) -> App<B> {
         App::<B> {
-            content: Arc::new(RwLock::new(HashSet::new())),
+            content: Arc::new(RwLock::new(BTreeSet::new())),
             list_state: ListState::default(),
             terminal,
             view_article: false,
@@ -62,6 +62,7 @@ where
 
             let items: Vec<ListItem> = content
                 .iter()
+                .rev()
                 .map(|article| {
                     let lines = vec![
                         Spans::from(article.title.clone()),

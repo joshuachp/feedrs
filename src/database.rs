@@ -1,5 +1,6 @@
-use sqlx::{sqlite::SqliteConnectOptions, Executor, SqlitePool};
-use std::{collections::HashSet, path::Path, sync::RwLock};
+use chrono::DateTime;
+use sqlx::{sqlite::SqliteConnectOptions, sqlite::SqliteRow, Executor, Row, SqlitePool};
+use std::{collections::BTreeSet, path::Path, sync::RwLock};
 
 use crate::content::Article;
 
@@ -23,6 +24,7 @@ pub async fn create_database(path: &Path) -> sqlx::Result<SqlitePool> {
                 title TEXT NOT NULL,
                 sub_title TEXT NOT NULL,
                 content TEXT NOT NULL,
+                date TEXT,
                 PRIMARY KEY (id, source)
             )",
         )
@@ -32,17 +34,33 @@ pub async fn create_database(path: &Path) -> sqlx::Result<SqlitePool> {
     Ok(pool)
 }
 
-pub async fn get_all(pool: &SqlitePool, content: &RwLock<HashSet<Article>>) -> sqlx::Result<()> {
+pub async fn get_all(pool: &SqlitePool, content: &RwLock<BTreeSet<Article>>) -> sqlx::Result<()> {
     let mut conn = pool.acquire().await?;
-    let articles: Vec<Article> = sqlx::query_as(
+    let articles: Vec<Article> = sqlx::query(
         "SELECT 
             id,
             source,
             title,
             sub_title,
-            content
+            content,
+            date
         FROM Articles",
     )
+    .try_map(|row: SqliteRow| {
+        let date = if let Some(date) = row.try_get("date")? {
+            DateTime::parse_from_rfc3339(date).ok()
+        } else {
+            None
+        };
+        return Ok(Article {
+            id: row.try_get("id")?,
+            source: row.try_get("source")?,
+            title: row.try_get("title")?,
+            sub_title: row.try_get("sub_title")?,
+            content: row.try_get("content")?,
+            date,
+        });
+    })
     .fetch_all(&mut conn)
     .await?;
 

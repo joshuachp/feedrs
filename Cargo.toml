@@ -16,6 +16,7 @@ reqwest = "0.10"
 syndication = "0.5"
 rss = "1.9"
 html2text = "0.2"
+chrono = "0.4"
 # TUI
 tui = { version = "0.12", features = ["crossterm"] }
 crossterm = "0.18"

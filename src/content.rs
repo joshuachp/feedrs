@@ -1,6 +1,7 @@
+use chrono::DateTime;
+use chrono::FixedOffset;
 use html2text::from_read;
 use sqlx::FromRow;
-use std::hash::{Hash, Hasher};
 use syndication::Feed;
 
 #[derive(FromRow, PartialEq, Eq, Clone)]
@@ -10,12 +11,25 @@ pub struct Article {
     pub title: String,
     pub sub_title: String,
     pub content: String,
+    pub date: Option<DateTime<FixedOffset>>,
 }
 
-impl Hash for Article {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        self.id.hash(state);
-        self.source.hash(state);
+//impl Hash for Article {
+//    fn hash<H: Hasher>(&self, state: &mut H) {
+//        self.id.hash(state);
+//        self.source.hash(state);
+//    }
+//}
+
+impl PartialOrd for Article {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        self.date.partial_cmp(&other.date)
+    }
+}
+
+impl Ord for Article {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.date.cmp(&other.date)
     }
 }
 
@@ -31,12 +45,18 @@ pub fn parse_content(source: &str, content: String) -> anyhow::Result<Vec<Articl
                 } else {
                     String::from("")
                 };
+                let update = if let Ok(date) = DateTime::parse_from_rfc3339(entry.updated()) {
+                    Some(date)
+                } else {
+                    None
+                };
                 return Article {
                     id: String::from(entry.id()),
                     source: String::from(source),
                     title: String::from(entry.title()),
                     sub_title: parse_html(entry.summary().unwrap_or("")),
                     content,
+                    date: update,
                 };
             })
             .collect(),
@@ -49,12 +69,18 @@ pub fn parse_content(source: &str, content: String) -> anyhow::Result<Vec<Articl
                 } else {
                     String::from("")
                 };
+                let update = if let Some(date) = item.pub_date() {
+                    DateTime::parse_from_rfc2822(date).ok()
+                } else {
+                    None
+                };
                 return Article {
                     id: String::from(""),
                     source: String::from(""),
                     title: String::from(item.title().unwrap_or("")),
                     sub_title: parse_html(item.description().unwrap_or("")),
                     content,
+                    date: update,
                 };
             })
             .collect(),
