@@ -7,13 +7,13 @@ use std::{io, io::stdout, io::Write};
 use tokio::sync::{mpsc, mpsc::error::TryRecvError};
 use tui::{backend::CrosstermBackend, Terminal};
 
+mod app;
 mod configuration;
 mod content;
 mod database;
-mod ui;
 mod update;
 
-use crate::ui::App;
+use crate::app::App;
 
 fn input_thread(mut sender: mpsc::Sender<KeyEvent>) {
     tokio::spawn(async move {
