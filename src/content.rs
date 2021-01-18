@@ -14,22 +14,21 @@ pub struct Article {
     pub date: Option<DateTime<FixedOffset>>,
 }
 
-//impl Hash for Article {
-//    fn hash<H: Hasher>(&self, state: &mut H) {
-//        self.id.hash(state);
-//        self.source.hash(state);
-//    }
-//}
-
+// Partial order articles from newer to older, so we reverse the order of the date compare
 impl PartialOrd for Article {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        self.date.partial_cmp(&other.date)
+        if let Some(order) = self.date.partial_cmp(&other.date) {
+            Some(order.reverse())
+        } else {
+            None
+        }
     }
 }
 
+// Partial order articles from newer to older, so we reverse the order of the date compare
 impl Ord for Article {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        self.date.cmp(&other.date)
+        self.date.cmp(&other.date).reverse()
     }
 }
 

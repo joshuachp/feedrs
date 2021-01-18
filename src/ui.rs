@@ -62,7 +62,6 @@ where
 
             let items: Vec<ListItem> = content
                 .iter()
-                .rev()
                 .map(|article| {
                     let lines = vec![
                         Spans::from(article.title.clone()),
