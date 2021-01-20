@@ -49,7 +49,7 @@ fn create_config_path(path_arg: Option<&str>) -> io::Result<PathBuf> {
         let mut xdg_config = env::var("XDG_CONFIG_HOME").unwrap_or_else(|_| {
             let mut config = env::var("HOME").unwrap();
             config.push_str("/.config");
-            return config;
+            config
         });
         xdg_config.push_str("/feedrs/feedrs.toml");
         path = PathBuf::from(xdg_config);
@@ -121,12 +121,13 @@ where
     let cache_path = create_cache_path()?;
     let sources = config_file
         .sources
-        .unwrap_or_else(|| vec![])
+        .unwrap_or_else(Vec::new)
         .into_iter()
-        .map(|x| Arc::new(x))
+        .map(Arc::new)
         .collect();
+    let config_update_interval = config_file.update_interval;
     let update_interval = value_t!(matches.value_of("update"), u64)
-        .unwrap_or(config_file.update_interval.unwrap_or(300));
+        .unwrap_or_else(|_| config_update_interval.unwrap_or(300));
 
     Ok(Config {
         config_path,

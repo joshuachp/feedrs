@@ -81,7 +81,7 @@ pub async fn get_all(pool: &SqlitePool, content: &RwLock<BTreeSet<Article>>) -> 
     .fetch_all(&mut conn)
     .await?;
 
-    if articles.len() > 0 {
+    if !articles.is_empty() {
         let mut content = content.write().unwrap();
         for article in articles {
             content.insert(article);

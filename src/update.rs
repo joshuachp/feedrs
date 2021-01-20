@@ -10,9 +10,9 @@ async fn request_content(url: &str) -> reqwest::Result<String> {
     reqwest::get(url).await?.text().await
 }
 
-async fn update_content(sources: &Vec<Arc<String>>, content: &Arc<RwLock<BTreeSet<Article>>>) {
+async fn update_content(sources: &[Arc<String>], content: &Arc<RwLock<BTreeSet<Article>>>) {
     // Update only if there is a source to update from
-    if sources.len() > 0 {
+    if !sources.is_empty() {
         for source in sources {
             let source = Arc::clone(source);
             let content = Arc::clone(content);
