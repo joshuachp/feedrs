@@ -49,7 +49,7 @@ async fn main() -> anyhow::Result<()> {
     // Read configuration
     let config = configuration::config(std::env::args())?;
     // Create database pool
-    let pool = database::create_database(&config.cache_path).await?;
+    let pool = database::get_database(&config.cache_path).await?;
     // Initialize UI
     enable_raw_mode()?;
     let mut std_out = io::stdout();
