@@ -8,10 +8,9 @@ edition = "2018"
 anyhow = "1.0"
 # TODO: Remove unnecessary features ( probably only ["rt-threaded","macros",
 # "time"] are needed)
-# TODO: Upgrade to tokio 1 and reqwest 0.11 when it will be supported by sqlx
-tokio = { version = "0.2", features = ["full"] }
+tokio = { version = "1.1", features = ["full"] }
 # Requests
-reqwest = "0.10"
+reqwest = "0.11"
 # Parser
 syndication = "0.5"
 rss = "1.9"

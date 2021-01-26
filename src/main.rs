@@ -3,8 +3,7 @@ use crossterm::{
     execute,
     terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
 };
-use std::{io, io::stdout, io::Write};
-use tokio::sync::{mpsc, mpsc::error::TryRecvError};
+use std::{io, io::stdout, io::Write, sync::{Arc, Mutex}};
 use tui::{backend::CrosstermBackend, Terminal};
 
 mod app;
@@ -15,16 +14,15 @@ mod update;
 
 use crate::app::App;
 
-fn input_thread(mut sender: mpsc::Sender<KeyEvent>) {
+fn input_thread(inputs: &Arc<Mutex<Vec<KeyEvent>>>) {
+    let inputs = Arc::clone(inputs);
     tokio::spawn(async move {
         loop {
             // Blocks until event/input
             match crossterm::event::read() {
                 Ok(event) => {
                     if let Event::Key(event) = event {
-                        if let Err(err) = sender.send(event).await {
-                            panic!("{}", err);
-                        }
+                        inputs.lock().unwrap().push(event);
                         if event.code == KeyCode::Char('q') {
                             return;
                         }
@@ -62,20 +60,26 @@ async fn main() -> anyhow::Result<()> {
     database::get_all(&pool, &app.content).await?;
     // Draws the area every 50 milliseconds
     let mut interval = tokio::time::interval(tokio::time::Duration::from_millis(50));
-    // Input thread channel
-    // NOTE: Buffer up to 10 keys
-    let (sender, mut reciver) = mpsc::channel(10);
+    // Shared collection of events with input thread
+    let inputs = Arc::new(Mutex::new(Vec::new()));
+    // Sync list of events
     // Starts user input thread
-    input_thread(sender);
+    input_thread(&inputs);
     // Starts update thread
     update::update_thread(&config, &app.content);
     // Main loop
     loop {
         // Drawing tick
         interval.tick().await;
-        loop {
-            match reciver.try_recv() {
-                Ok(event) => match event.code {
+
+        let events: Vec<KeyEvent>;
+        // Consume all the inputs in the shared collections
+        {
+            events = inputs.lock().unwrap().drain(0..).collect();
+        }
+
+        for event in events {
+            match event.code {
                     KeyCode::Char('h') | KeyCode::Left => {
                         app.view_article = false;
                     }
@@ -93,16 +97,8 @@ async fn main() -> anyhow::Result<()> {
                     KeyCode::Char('q') => {
                         close_application()?;
                         return Ok(());
-                    }
+                    },
                     _ => {}
-                },
-                Err(TryRecvError::Empty) => {
-                    break;
-                }
-                Err(err @ TryRecvError::Closed) => {
-                    close_application()?;
-                    panic!(err);
-                }
             }
         }
 
