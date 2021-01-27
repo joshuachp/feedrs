@@ -30,9 +30,9 @@ pub struct Config {
 }
 
 /**
- * Get the path of the config file. It will use the path passed as an argument or the environment
- * variable XDG_CONFIG_HOME. If neither of those are provided it will use the path:
- * `~/config/feedrs/feedrs.toml`
+ * Get the path of the config file. It will use the path passed as an argument
+ * or the environment variable XDG_CONFIG_HOME. If neither of those are provided
+ * it will use the path: `~/config/feedrs/feedrs.toml`
  */
 fn create_config_path(path_arg: Option<&str>) -> io::Result<PathBuf> {
     let path;
