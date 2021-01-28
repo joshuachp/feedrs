@@ -24,5 +24,5 @@ clap = "2.33"
 serde = { version = "1.0", features = ["derive"] }
 toml = "0.5"
 # Database
-sqlx = { git = "https://github.com/launchbadge/sqlx.git", features = [ "runtime-tokio-rustls", "sqlite", "chrono" ] }
+sqlx = { git = "https://github.com/launchbadge/sqlx.git", features = [ "runtime-tokio-rustls", "sqlite", "chrono", "macros", "offline" ] }
 

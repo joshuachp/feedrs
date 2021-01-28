@@ -20,17 +20,15 @@ pub async fn get_database(path: &Path) -> sqlx::Result<SqlitePool> {
     );
 
     let mut conn = pool.acquire().await?;
-    let version: i64 = sqlx::query_scalar("PRAGMA user_version;")
+    let version: i32 = sqlx::query_scalar!("PRAGMA user_version;")
         .fetch_one(&mut conn)
-        .await?;
-    dbg!(version);
+        .await?
+        .unwrap_or(-1);
 
     if version != user_version!() {
         if version != 0 {
-            dbg!("Delete");
             delete_database(&pool).await?;
         }
-        dbg!("create");
         create_database(&pool).await?;
     }
 
@@ -39,12 +37,12 @@ pub async fn get_database(path: &Path) -> sqlx::Result<SqlitePool> {
 
 pub async fn create_database(pool: &SqlitePool) -> sqlx::Result<()> {
     let mut trans = pool.begin().await?;
+    // Using execute instead of macro since the query is not a string literal
     trans
         .execute(concat!("PRAGMA user_version = ", user_version!(), ";"))
         .await?;
-    trans
-        .execute(
-            "CREATE TABLE IF NOT EXISTS Articles (
+    sqlx::query!(
+        "CREATE TABLE IF NOT EXISTS Articles (
                 id TEXT NOT NULL,
                 source TEXT NOT NULL,
                 title TEXT NOT NULL,
@@ -53,8 +51,9 @@ pub async fn create_database(pool: &SqlitePool) -> sqlx::Result<()> {
                 date DATETIME,
                 PRIMARY KEY (id, source)
             )",
-        )
-        .await?;
+    )
+    .execute(&mut trans)
+    .await?;
     trans.commit().await?;
     Ok(())
 }
@@ -68,7 +67,8 @@ pub async fn delete_database(pool: &SqlitePool) -> sqlx::Result<()> {
 
 pub async fn get_all(pool: &SqlitePool, content: &RwLock<BTreeSet<Article>>) -> sqlx::Result<()> {
     let mut conn = pool.acquire().await?;
-    let articles: Vec<Article> = sqlx::query_as(
+    let articles: Vec<Article> = sqlx::query_as_unchecked!(
+        Article,
         "SELECT 
             id,
             source,
@@ -88,4 +88,23 @@ pub async fn get_all(pool: &SqlitePool, content: &RwLock<BTreeSet<Article>>) -> 
         }
     }
     Ok(())
+}
+
+pub async fn _insert_article(pool: &SqlitePool, article: &Article) -> sqlx::Result<i64> {
+    let mut conn = pool.acquire().await?;
+    let id = sqlx::query!(
+        "INSERT OR REPLACE 
+            INTO Articles (id, source, title, sub_title, content, date)
+            VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+        article.id,
+        article.source,
+        article.title,
+        article.sub_title,
+        article.content,
+        article.date,
+    )
+    .execute(&mut conn)
+    .await?
+    .last_insert_rowid();
+    Ok(id)
 }

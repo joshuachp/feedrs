@@ -1,0 +1,89 @@
+{
+  "db": "SQLite",
+  "259dc175010d33dbd5e1a9261a37a1cf97cb4b75086f255413c341490e1e4f71": {
+    "query": "CREATE TABLE IF NOT EXISTS Articles (\n                id TEXT NOT NULL,\n                source TEXT NOT NULL,\n                title TEXT NOT NULL,\n                sub_title TEXT NOT NULL,\n                content TEXT NOT NULL,\n                date DATETIME,\n                PRIMARY KEY (id, source)\n            )",
+    "describe": {
+      "columns": [],
+      "parameters": {
+        "Right": 0
+      },
+      "nullable": []
+    }
+  },
+  "69531b6cb5baa4e97486b0d05a7f6019de1966585e24f369c98422f6628adf79": {
+    "query": "INSERT OR REPLACE \n            INTO Articles (id, source, title, sub_title, content, date)\n            VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+    "describe": {
+      "columns": [],
+      "parameters": {
+        "Right": 6
+      },
+      "nullable": []
+    }
+  },
+  "ae76a7823f9a14ff2b8ad1d733b6aefbc8f5b3d51d32b73862716b5d5cd4b9ce": {
+    "query": "SELECT \n            id,\n            source,\n            title,\n            sub_title,\n            content,\n            date\n        FROM Articles",
+    "describe": {
+      "columns": [
+        {
+          "name": "id",
+          "ordinal": 0,
+          "type_info": "Text"
+        },
+        {
+          "name": "source",
+          "ordinal": 1,
+          "type_info": "Text"
+        },
+        {
+          "name": "title",
+          "ordinal": 2,
+          "type_info": "Text"
+        },
+        {
+          "name": "sub_title",
+          "ordinal": 3,
+          "type_info": "Text"
+        },
+        {
+          "name": "content",
+          "ordinal": 4,
+          "type_info": "Text"
+        },
+        {
+          "name": "date",
+          "ordinal": 5,
+          "type_info": "Datetime"
+        }
+      ],
+      "parameters": {
+        "Right": 0
+      },
+      "nullable": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        true
+      ]
+    }
+  },
+  "c62def1d7112c6f3e8bf1432f8cf2582a05ce640b851b10c1c3c8af39ce756c9": {
+    "query": "PRAGMA user_version;",
+    "describe": {
+      "columns": [
+        {
+          "name": "user_version",
+          "ordinal": 0,
+          "type_info": "Int"
+        }
+      ],
+      "parameters": {
+        "Right": 0
+      },
+      "nullable": [
+        null
+      ]
+    }
+  }
+}

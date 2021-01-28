@@ -1,5 +1,4 @@
-use chrono::DateTime;
-use chrono::FixedOffset;
+use chrono::{DateTime, FixedOffset};
 use html2text::from_read;
 use sqlx::FromRow;
 use syndication::Feed;
