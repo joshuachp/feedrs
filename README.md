@@ -6,4 +6,3 @@ Feed reader written in Rust
 
 This is what the application should do
 
-![sequence diagram](docs/schemes/sequence_diagram.png)
