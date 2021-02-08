@@ -14,8 +14,8 @@ reqwest = "0.11"
 # Parser
 syndication = "0.5"
 rss = "1.9"
-html2text = "0.2"
 chrono = "0.4"
+html2text = "0.2.1"
 # TUI
 tui = { version = "0.12", features = ["crossterm"] }
 crossterm = "0.18"
@@ -24,5 +24,5 @@ clap = "2.33"
 serde = { version = "1.0", features = ["derive"] }
 toml = "0.5"
 # Database
-sqlx = { git = "https://github.com/launchbadge/sqlx.git", features = [ "runtime-tokio-rustls", "sqlite", "chrono", "macros", "offline" ] }
+sqlx = { version = "0.5", features = [ "runtime-tokio-rustls", "sqlite", "chrono", "macros", "offline" ] }
 

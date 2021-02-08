@@ -1,5 +1,4 @@
 use chrono::{DateTime, FixedOffset};
-use html2text::from_read;
 use sqlx::FromRow;
 use syndication::Feed;
 
@@ -85,12 +84,8 @@ pub fn parse_content(source: &str, content: String) -> anyhow::Result<Vec<Articl
     })
 }
 
-/*
- * Parse the html of a feed item content into simple text
- */
-fn parse_html(content: &str) -> String {
-    // TODO: Set proper line length, default to 80
-    String::from(from_read(content.as_bytes(), 80).trim())
+fn parse_html(html: &str) -> String {
+    html2text::from_read(html.as_bytes(), 80).trim().to_string()
 }
 
 #[cfg(test)]

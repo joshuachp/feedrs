@@ -63,10 +63,7 @@ where
             let items: Vec<ListItem> = content
                 .iter()
                 .map(|article| {
-                    let lines = vec![
-                        Spans::from(article.title.clone()),
-                        Spans::from(article.sub_title.clone()),
-                    ];
+                    let lines = vec![Spans::from(article.title.clone())];
                     ListItem::new(lines)
                 })
                 .collect();
@@ -78,7 +75,7 @@ where
                         .fg(Color::Yellow)
                         .add_modifier(Modifier::BOLD),
                 )
-                .highlight_symbol(">> ");
+                .highlight_symbol("> ");
             f.render_stateful_widget(items, chunks[0], list_state);
         })
     }
@@ -117,6 +114,9 @@ where
     }
 
     pub fn list_next(&mut self) {
+        if self.view_article {
+            return;
+        }
         let i = match self.list_state.selected() {
             Some(i) => {
                 if i >= self.content.read().unwrap().len() - 1 {
@@ -131,6 +131,9 @@ where
     }
 
     pub fn list_previous(&mut self) {
+        if self.view_article {
+            return;
+        }
         let i = match self.list_state.selected() {
             Some(i) => {
                 if i == 0 {

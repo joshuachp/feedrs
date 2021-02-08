@@ -3,7 +3,12 @@ use crossterm::{
     execute,
     terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
 };
-use std::{io, io::stdout, io::Write, sync::{Arc, Mutex}};
+use std::{
+    io,
+    io::stdout,
+    io::Write,
+    sync::{Arc, Mutex},
+};
 use tui::{backend::CrosstermBackend, Terminal};
 
 mod app;
@@ -80,25 +85,25 @@ async fn main() -> anyhow::Result<()> {
 
         for event in events {
             match event.code {
-                    KeyCode::Char('h') | KeyCode::Left => {
-                        app.view_article = false;
-                    }
-                    KeyCode::Char('j') | KeyCode::Down => app.list_next(),
-                    KeyCode::Char('k') | KeyCode::Up => app.list_previous(),
-                    KeyCode::Char('l') | KeyCode::Right => {
-                        app.view_article = true;
-                    }
-                    KeyCode::Enter => {
-                        app.view_article = true;
-                    }
-                    KeyCode::Esc => {
-                        app.view_article = false;
-                    }
-                    KeyCode::Char('q') => {
-                        close_application()?;
-                        return Ok(());
-                    },
-                    _ => {}
+                KeyCode::Char('h') | KeyCode::Left => {
+                    app.view_article = false;
+                }
+                KeyCode::Char('j') | KeyCode::Down => app.list_next(),
+                KeyCode::Char('k') | KeyCode::Up => app.list_previous(),
+                KeyCode::Char('l') | KeyCode::Right => {
+                    app.view_article = true;
+                }
+                KeyCode::Enter => {
+                    app.view_article = true;
+                }
+                KeyCode::Esc => {
+                    app.view_article = false;
+                }
+                KeyCode::Char('q') => {
+                    close_application()?;
+                    return Ok(());
+                }
+                _ => {}
             }
         }
 
