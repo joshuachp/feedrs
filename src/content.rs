@@ -2,7 +2,7 @@ use chrono::{DateTime, FixedOffset};
 use sqlx::FromRow;
 use syndication::Feed;
 
-#[derive(FromRow, PartialEq, Eq, Clone)]
+#[derive(FromRow, PartialEq, Eq, Clone, Debug)]
 pub struct Article {
     pub id: String,
     pub source: String,
@@ -61,6 +61,11 @@ pub fn parse_content(source: &str, content: String) -> anyhow::Result<Vec<Articl
             .items()
             .iter()
             .map(|item| {
+                let id = if let Some(guid) = item.guid() {
+                    String::from(guid.value())
+                } else {
+                    String::from("")
+                };
                 let content = if let Some(content) = item.content() {
                     parse_html(content)
                 } else {
@@ -72,8 +77,8 @@ pub fn parse_content(source: &str, content: String) -> anyhow::Result<Vec<Articl
                     None
                 };
                 return Article {
-                    id: String::from(""),
-                    source: String::from(""),
+                    id,
+                    source: String::from(source),
                     title: String::from(item.title().unwrap_or("")),
                     sub_title: parse_html(item.description().unwrap_or("")),
                     content,

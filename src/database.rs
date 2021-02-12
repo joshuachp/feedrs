@@ -4,9 +4,7 @@ use std::{collections::BTreeSet, path::Path, sync::RwLock};
 use crate::content::Article;
 
 macro_rules! user_version {
-    () => {
-        1
-    };
+    () => { 1 };
 }
 
 // This will delete and not migrate the database if the version is changed, since is used only as
@@ -90,12 +88,11 @@ pub async fn get_all(pool: &SqlitePool, content: &RwLock<BTreeSet<Article>>) -> 
     Ok(())
 }
 
-pub async fn _insert_article(pool: &SqlitePool, article: &Article) -> sqlx::Result<i64> {
+pub async fn insert_article(pool: &SqlitePool, article: &Article) -> sqlx::Result<i64> {
     let mut conn = pool.acquire().await?;
     let id = sqlx::query!(
-        "INSERT OR REPLACE 
-            INTO Articles (id, source, title, sub_title, content, date)
-            VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+        "INSERT OR REPLACE INTO Articles (id, source, title, sub_title, content, date)
+            VALUES (?, ?, ?, ?, ?, ?)",
         article.id,
         article.source,
         article.title,

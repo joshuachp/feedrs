@@ -7,13 +7,11 @@ CREATE TABLE IF NOT EXISTS Articles (
     date DATETIME,
     PRIMARY KEY (id, source)
 );
-INSERT OR REPLACE 
-            INTO Articles (id, source, title, sub_title, content, date)
-            VALUES (
-                'id',
-                'source',
-                'title',
-                'sub_title',
-                'content',
-                '2016-11-08T03:50:23-05:00'
-            );
+INSERT OR REPLACE INTO Articles (id, source, title, sub_title, content, date) VALUES (
+        'id',
+        'source',
+        'title',
+        'sub_title',
+        'content',
+        '2016-11-08T03:50:23-05:00'
+);

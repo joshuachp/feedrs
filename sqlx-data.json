@@ -10,8 +10,8 @@
       "nullable": []
     }
   },
-  "69531b6cb5baa4e97486b0d05a7f6019de1966585e24f369c98422f6628adf79": {
-    "query": "INSERT OR REPLACE \n            INTO Articles (id, source, title, sub_title, content, date)\n            VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+  "a43893b2f56ec85c797a726db28768f8fac998739665905aba00f4b091f0adae": {
+    "query": "INSERT OR REPLACE INTO Articles (id, source, title, sub_title, content, date)\n            VALUES (?, ?, ?, ?, ?, ?)",
     "describe": {
       "columns": [],
       "parameters": {

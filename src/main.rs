@@ -52,7 +52,7 @@ async fn main() -> anyhow::Result<()> {
     // Read configuration
     let config = configuration::config(std::env::args())?;
     // Create database pool
-    let pool = database::get_database(&config.cache_path).await?;
+    let pool = Arc::new(database::get_database(&config.cache_path).await?);
     // Initialize UI
     enable_raw_mode()?;
     let mut std_out = io::stdout();
@@ -71,7 +71,7 @@ async fn main() -> anyhow::Result<()> {
     // Starts user input thread
     input_thread(&inputs);
     // Starts update thread
-    update::update_thread(&config, &app.content);
+    update::update_thread(&config, &pool, &app.content);
     // Main loop
     loop {
         // Drawing tick
