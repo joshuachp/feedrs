@@ -7,7 +7,7 @@ use tui::{
     backend::Backend,
     layout::{Constraint, Direction, Layout},
     style::{Color, Modifier, Style},
-    text::Spans,
+    text::{Span, Spans, Text},
     widgets::{Block, Borders, List, ListItem, ListState, Paragraph, Wrap},
     Terminal,
 };
@@ -98,13 +98,14 @@ where
                     .constraints([Constraint::Percentage(100)].as_ref())
                     .split(f.size());
 
-                let text = vec![
-                    Spans::from(article.title),
-                    Spans::from(article.sub_title),
-                    Spans::from(article.content),
-                ];
+                // Multi-line text for the content of an article
+                let mut text = Text::from(Span::raw(article.title));
+                text.extend(Text::raw(article.sub_title));
+                text.extend(Text::raw(article.content));
+
                 let paragraph = Paragraph::new(text)
                     .block(Block::default().title("Article").borders(Borders::ALL))
+                    .alignment(tui::layout::Alignment::Left)
                     .wrap(Wrap { trim: false });
                 f.render_widget(paragraph, chunks[0]);
             })
