@@ -90,7 +90,8 @@ pub fn parse_content(source: &str, content: String) -> anyhow::Result<Vec<Articl
 }
 
 fn parse_html(html: &str) -> String {
-    html2text::from_read(html.as_bytes(), 80).trim().to_string()
+    // Set max line-length to 160 (80 * 2) this could be better
+    html2text::from_read(html.as_bytes(), 160).trim().to_string()
 }
 
 #[cfg(test)]

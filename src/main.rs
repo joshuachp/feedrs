@@ -86,18 +86,18 @@ async fn main() -> anyhow::Result<()> {
         for event in events {
             match event.code {
                 KeyCode::Char('h') | KeyCode::Left => {
-                    app.view_article = false;
+                    app.set_view_article(false);
                 }
-                KeyCode::Char('j') | KeyCode::Down => app.list_next(),
-                KeyCode::Char('k') | KeyCode::Up => app.list_previous(),
+                KeyCode::Char('j') | KeyCode::Down => app.down_key_event(),
+                KeyCode::Char('k') | KeyCode::Up => app.up_key_event(),
                 KeyCode::Char('l') | KeyCode::Right => {
-                    app.view_article = true;
+                    app.set_view_article(true);
                 }
                 KeyCode::Enter => {
-                    app.view_article = true;
+                    app.set_view_article(true);
                 }
                 KeyCode::Esc => {
-                    app.view_article = false;
+                    app.set_view_article(false);
                 }
                 KeyCode::Char('q') => {
                     close_application()?;
