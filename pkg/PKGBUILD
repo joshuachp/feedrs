@@ -1,0 +1,51 @@
+# Maintainer: Joshua Chapman <joshua.samuel.chapman@protonmail.com>
+pkgname="feedrs-git"
+pkgver=r42.10f7036
+pkgrel=1
+pkgdesc="Feed reader written in Rust"
+arch=('x86_64' 'i686')
+url="https://github.com/joshuachp/feedrs"
+license=('MIT')
+#groups=()
+#depends=()
+makedepends=('git' 'rust' 'cargo')
+provides=("${pkgname%-git}")
+conflicts=("${pkgname%-git}")
+replaces=()
+#backup=()
+#options=()
+#install=
+#source=('git+https://github.com/joshuachp/feedrs.git')
+#noextract=()
+#sha256sums=('SKIP')
+validpgpkeys=('EFA53AAA9C6D48EB4D821E251B3F6DE932083571') # Joshua Chapman
+
+pkgver() {
+    cd "$srcdir/${pkgname%-git}"
+
+# Git, tags available
+#    printf "%s" "$(git describe --long | sed 's/\([^-]*-\)g/r\1/;s/-/./g')"
+
+# Git, no tags available
+    printf "r%s.%s" "$(git rev-list --count HEAD)" "$(git rev-parse --short HEAD)"
+}
+
+#prepare() {
+#    cd "$srcdir/${pkgname%-git}"
+#    patch -p1 -i "$srcdir/${pkgname%-git}.patch"
+#}
+
+build() {
+    cd "$srcdir/${pkgname%-git}"
+    cargo build --release --all-features --target-dir=target
+}
+
+check() {
+    cd "$srcdir/${pkgname%-git}"
+    cargo test --release --locked --target-dir=target
+}
+
+package() {
+    cd "$srcdir/${pkgname%-git}"
+    install -Dm 755 target/release/${pkgname%-git} -t "${pkgdir}/usr/bin"
+}
