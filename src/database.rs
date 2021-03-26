@@ -1,10 +1,12 @@
 use sqlx::{sqlite::SqliteConnectOptions, Executor, SqlitePool};
-use std::{collections::BTreeSet, path::Path, sync::RwLock};
+use std::{path::Path, sync::RwLock};
 
-use crate::content::Article;
+use crate::content::{Article, ArticleMap};
 
 macro_rules! user_version {
-    () => { 1 };
+    () => {
+        1
+    };
 }
 
 // This will delete and not migrate the database if the version is changed, since is used only as
@@ -63,7 +65,7 @@ pub async fn delete_database(pool: &SqlitePool) -> sqlx::Result<()> {
     Ok(())
 }
 
-pub async fn get_all(pool: &SqlitePool, content: &RwLock<BTreeSet<Article>>) -> sqlx::Result<()> {
+pub async fn get_all(pool: &SqlitePool, content: &RwLock<ArticleMap>) -> sqlx::Result<()> {
     let mut conn = pool.acquire().await?;
     let articles: Vec<Article> = sqlx::query_as_unchecked!(
         Article,

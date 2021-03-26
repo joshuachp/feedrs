@@ -1,71 +1,79 @@
 use sqlx::SqlitePool;
-use std::collections::BTreeSet;
-use std::sync::{Arc, RwLock};
-use tokio::task::JoinHandle;
-use tokio::time::{interval, Duration};
+use std::{
+    collections::{HashMap},
+    sync::{Arc, RwLock},
+};
+use tokio::{
+    sync::mpsc,
+    time::{interval, Duration},
+};
 
-use crate::configuration::Config;
-use crate::content::{parse_content, Article};
+use crate::{
+    configuration::Config,
+    content::{parse_content, Article, ArticleMap},
+};
 
 async fn request_content(url: &str) -> reqwest::Result<String> {
     // TODO: Check status and show errors
     reqwest::get(url).await?.text().await
 }
 
-async fn update_content(sources: &[Arc<String>], content: &Arc<RwLock<BTreeSet<Article>>>) {
+/// Asynchronously retrieves the content from the sources in the config
+async fn get_content(sources: &[Arc<String>]) -> HashMap<(String, String), Article> {
+    // Set of the new articles
+    let mut result: HashMap<(String, String), Article> = HashMap::new();
+    // Channel for retrieving the parsed articles
+    let (sender, mut receiver) = mpsc::channel::<Article>(sources.len());
     // Spawns update threads
-    let handles: Vec<JoinHandle<()>> = sources
-        .iter()
-        .map(|source| {
-            let source = Arc::clone(source);
-            let content = Arc::clone(content);
-            tokio::spawn(async move {
-                let articles =
-                    parse_content(&source, request_content(&source).await.unwrap()).unwrap();
-                let mut content = content.write().unwrap();
-                for article in articles {
-                    content.insert(article);
-                }
-            })
-        })
-        .collect();
-    // Waits for each thread to finish
-    for handle in handles {
-        handle.await.unwrap();
+    sources.iter().for_each(|source| {
+        let source = Arc::clone(source);
+        let sender = sender.clone();
+        tokio::spawn(async move {
+            let articles = parse_content(&source, request_content(&source).await.unwrap()).unwrap();
+            for article in articles {
+                sender.send(article).await.unwrap();
+            }
+        });
+    });
+    drop(sender);
+    // Waits to receive the result for each thread
+    while let Some(res) = receiver.recv().await {
+        result.insert((res.id.clone(), res.source.clone()), res);
     }
+    result
 }
 
-pub fn update_thread(
-    config: &Config,
-    pool: &Arc<SqlitePool>,
-    content: &Arc<RwLock<BTreeSet<Article>>>,
-) {
+pub fn update_thread(config: &Config, pool: &Arc<SqlitePool>, content: &Arc<RwLock<ArticleMap>>) {
     if !config.sources.is_empty() {
         let update_interval = config.update_interval;
         let sources: Vec<Arc<String>> = config.sources.iter().map(|x| Arc::clone(x)).collect();
-        let content = Arc::clone(content);
+        let content_c = Arc::clone(content);
         let pool = Arc::clone(pool);
 
         tokio::spawn(async move {
             let mut interval = interval(Duration::from_secs(update_interval));
             loop {
                 interval.tick().await;
-                update_content(&sources, &content).await;
-                update_cache(&pool, &content)
+                let content_update = get_content(&sources).await;
+                let deleted_content;
+                {
+                    let mut content = content_c.write().unwrap();
+                    deleted_content = content.update_content(&content_update);
+                }
+                update_cache(&pool, content_update, deleted_content);
             }
         });
     }
 }
 
-pub fn update_cache(pool: &Arc<SqlitePool>, content: &Arc<RwLock<BTreeSet<Article>>>) {
-    let content = Arc::clone(content);
+/// It will invalidate every element in the database and then insert the new content with the new
+/// data. Then delete the content not found in the update.
+// TODO: This can be improved by deleting only the content with a time stamp or inserted some time
+// ago.
+pub fn update_cache(pool: &Arc<SqlitePool>, content_update: HashMap<(String, String),Article>, _deleted_content: Vec<Article>) {
     let pool = Arc::clone(pool);
     tokio::spawn(async move {
-        let articles: Vec<Article>;
-        {
-            articles = content.read().unwrap().iter().cloned().collect();
-        }
-        for article in articles {
+        for article in content_update.values() {
             crate::database::insert_article(&pool, &article)
                 .await
                 .unwrap();

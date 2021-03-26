@@ -1,5 +1,4 @@
 use std::{
-    collections::BTreeSet,
     convert::TryFrom,
     io,
     sync::{Arc, RwLock},
@@ -13,19 +12,19 @@ use tui::{
     Terminal,
 };
 
-use crate::content::Article;
+use crate::content::{Article, ArticleMap};
 
 pub struct App<B>
 where
     B: Backend,
 {
     // Set of the articles
-    pub content: Arc<RwLock<BTreeSet<Article>>>,
+    pub content: Arc<RwLock<ArticleMap>>,
     // List state
     pub list_state: ListState,
     // TUI terminal
     pub terminal: Terminal<B>,
-    article: Option<Article>,
+    article: Option<Arc<Article>>,
     max_scroll: Option<u16>,
     scroll: u16,
     view_article: bool,
@@ -37,7 +36,7 @@ where
 {
     pub fn new(terminal: Terminal<B>) -> App<B> {
         App::<B> {
-            content: Arc::new(RwLock::new(BTreeSet::new())),
+            content: Arc::new(RwLock::new(ArticleMap::default())),
             list_state: ListState::default(),
             terminal,
             view_article: false,
@@ -66,7 +65,7 @@ where
 
             let content = content.read().unwrap();
 
-            let items: Vec<ListItem> = content
+            let items: Vec<ListItem> = content.articles()
                 .iter()
                 .map(|article| {
                     let lines = vec![Spans::from(article.title.clone())];
@@ -137,11 +136,11 @@ where
             let index = self.list_state.selected().unwrap();
             {
                 let content = self.content.read().unwrap();
-                let mut content = content.iter();
+                let mut articles = content.articles().iter();
                 for _ in 0..index {
-                    content.next();
+                    articles.next();
                 }
-                self.article = Some(content.next().unwrap().clone());
+                self.article = Some(Arc::clone(articles.next().unwrap()));
             }
         } else {
             self.article = None;
@@ -158,11 +157,12 @@ where
                 .saturating_add(1)
                 .min(self.max_scroll.unwrap_or(0));
         } else {
+            let content = self.content.read().unwrap();
             // Select an article if there is one to select
-            if !self.content.read().unwrap().is_empty() {
+            if !content.articles().is_empty() {
                 let i = match self.list_state.selected() {
                     Some(i) => {
-                        if i >= self.content.read().unwrap().len() - 1 {
+                        if i >= content.articles().len() - 1 {
                             0
                         } else {
                             i + 1
@@ -179,12 +179,13 @@ where
         if self.view_article {
             self.scroll = self.scroll.saturating_sub(1);
         } else {
+            let content = self.content.read().unwrap();
             // Select an article if there is one to select
-            if !self.content.read().unwrap().is_empty() {
+            if !content.articles().is_empty() {
                 let i = match self.list_state.selected() {
                     Some(i) => {
                         if i == 0 {
-                            self.content.read().unwrap().len() - 1
+                            content.articles().len() - 1
                         } else {
                             i - 1
                         }

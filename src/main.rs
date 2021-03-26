@@ -5,8 +5,7 @@ use crossterm::{
 };
 use std::{
     io,
-    io::stdout,
-    io::Write,
+    io::{stdout, Write},
     sync::{Arc, Mutex},
 };
 use tui::{backend::CrosstermBackend, Terminal};
