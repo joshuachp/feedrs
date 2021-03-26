@@ -54,8 +54,7 @@ pub async fn create_database(pool: &SqlitePool) -> sqlx::Result<()> {
     )
     .execute(&mut trans)
     .await?;
-    trans.commit().await?;
-    Ok(())
+    trans.commit().await
 }
 
 pub async fn delete_database(pool: &SqlitePool) -> sqlx::Result<()> {
@@ -90,7 +89,8 @@ pub async fn get_all(pool: &SqlitePool, content: &RwLock<ArticleMap>) -> sqlx::R
     Ok(())
 }
 
-pub async fn insert_article(pool: &SqlitePool, article: &Article) -> sqlx::Result<i64> {
+// TODO: Use this functions in the transaction
+pub async fn _insert_article(pool: &SqlitePool, article: &Article) -> sqlx::Result<i64> {
     let mut conn = pool.acquire().await?;
     let id = sqlx::query!(
         "INSERT OR REPLACE INTO Articles (id, source, title, sub_title, content, date)
@@ -106,4 +106,37 @@ pub async fn insert_article(pool: &SqlitePool, article: &Article) -> sqlx::Resul
     .await?
     .last_insert_rowid();
     Ok(id)
+}
+
+pub async fn insert_articles(pool: &SqlitePool, articles: &[Article]) -> sqlx::Result<()> {
+    let mut trans = pool.begin().await?;
+    for article in articles {
+        sqlx::query!(
+            "INSERT OR REPLACE INTO Articles (id, source, title, sub_title, content, date)
+            VALUES (?, ?, ?, ?, ?, ?)",
+            article.id,
+            article.source,
+            article.title,
+            article.sub_title,
+            article.content,
+            article.date,
+        )
+        .execute(&mut trans)
+        .await?;
+    }
+    trans.commit().await
+}
+
+pub async fn delete_articles(pool: &SqlitePool, articles: &[(String, String)]) -> sqlx::Result<()> {
+    let mut trans = pool.begin().await?;
+    for (id, source) in articles {
+        sqlx::query!(
+            "DELETE FROM Articles WHERE id = ? AND source = ?",
+            id,
+            source
+        )
+        .execute(&mut trans)
+        .await?;
+    }
+    trans.commit().await
 }

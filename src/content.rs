@@ -28,7 +28,7 @@ impl PartialOrd for Article {
             }
             return source_ordering;
         }
-        return date_ordering;
+        date_ordering
     }
 }
 
@@ -43,7 +43,7 @@ impl Ord for Article {
             }
             return source_order;
         }
-        return date_ordering;
+        date_ordering
     }
 }
 
@@ -75,29 +75,36 @@ impl ArticleMap {
         self.articles.insert(Arc::clone(&article));
     }
 
-    /// Insert more then one item into the Map
-    pub fn extend(&mut self, articles: Vec<Article>) {
-        for article in articles {
-            self.insert(article);
-        }
-    }
-
     /// Get a reference to the article map's articles.
     pub fn articles(&self) -> &BTreeSet<Arc<Article>> {
         &self.articles
     }
 
-    /// Get a reference to the article map's articles.
-    pub fn get(&self, key: &(String, String)) -> Option<&Arc<Article>> {
-        self.ids.get(key)
+    pub fn remove(&mut self, key: &(String, String)) -> Option<Arc<Article>> {
+        let value = self.ids.remove(key);
+        if let Some(value) = value {
+            self.articles.remove(&value);
+            return Some(value);
+        }
+        None
     }
 
     /// Inserts a list of new elements and returns the Vec that where removed from the Vec
     pub fn update_content(
         &mut self,
-        _content_update: &HashMap<(String, String), Article>,
-    ) -> Vec<Article> {
-        todo!()
+        content_update: &HashMap<(String, String), Article>,
+    ) -> HashMap<(String, String), Arc<Article>> {
+        let mut ret: HashMap<(String, String), Arc<Article>> = HashMap::new();
+        // Remove the values not found in the update
+        let keys: Vec<(String, String)> = self.ids.keys().cloned().collect();
+        for key in keys {
+            if !content_update.contains_key(&key) {
+                let value = self.remove(&key);
+                ret.insert(key, value.unwrap());
+            }
+        }
+        content_update.values().for_each(|x| self.insert(x.clone()));
+        ret
     }
 }
 

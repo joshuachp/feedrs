@@ -60,7 +60,7 @@ pub fn update_thread(config: &Config, pool: &Arc<SqlitePool>, content: &Arc<RwLo
                     let mut content = content_c.write().unwrap();
                     deleted_content = content.update_content(&content_update);
                 }
-                update_cache(&pool, content_update, deleted_content);
+                update_cache(&pool, content_update.values().cloned().collect(), deleted_content.keys().cloned().collect());
             }
         });
     }
@@ -70,14 +70,11 @@ pub fn update_thread(config: &Config, pool: &Arc<SqlitePool>, content: &Arc<RwLo
 /// data. Then delete the content not found in the update.
 // TODO: This can be improved by deleting only the content with a time stamp or inserted some time
 // ago.
-pub fn update_cache(pool: &Arc<SqlitePool>, content_update: HashMap<(String, String),Article>, _deleted_content: Vec<Article>) {
+pub fn update_cache(pool: &Arc<SqlitePool>, content_update: Vec<Article>, deleted_content: Vec<(String, String)>) {
     let pool = Arc::clone(pool);
     tokio::spawn(async move {
-        for article in content_update.values() {
-            crate::database::insert_article(&pool, &article)
-                .await
-                .unwrap();
-        }
+        crate::database::insert_articles(&pool, &content_update).await.unwrap();
+        crate::database::delete_articles(&pool, &deleted_content).await.unwrap();
     });
 }
 
